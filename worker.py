@@ -159,6 +159,7 @@ class Worker(threading.Thread):
         """run - Step a job through its execution sequence"""
         try:
             # Hash of return codes for each step
+            start_time = time.time()
             ret = {}
             ret["waitvm"] = None
             ret["copyin"] = None
@@ -319,7 +320,8 @@ class Worker(threading.Thread):
             # Job termination. Notice that Tango considers
             # things like runjob timeouts and makefile errors to be
             # normal termination and doesn't reschedule the job.
-            self.log.info("Success: job %s:%d finished" % (self.job.name, self.job.id))
+            elapsed_secs = time.time() - start_time
+            self.log.info("Success: job %s:%d finished after %d seconds" % (self.job.name, self.job.id, elapsed_secs))
 
             # Move the job from the live queue to the dead queue
             # with an explanatory message
