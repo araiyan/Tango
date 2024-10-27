@@ -321,7 +321,10 @@ class Worker(threading.Thread):
             # things like runjob timeouts and makefile errors to be
             # normal termination and doesn't reschedule the job.
             elapsed_secs = time.time() - start_time
-            self.log.info("Success: job %s:%d finished after %d seconds" % (self.job.name, self.job.id, elapsed_secs))
+            self.log.info(
+                "Success: job %s:%d finished after %d seconds"
+                % (self.job.name, self.job.id, elapsed_secs)
+            )
 
             # Move the job from the live queue to the dead queue
             # with an explanatory message
