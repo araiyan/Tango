@@ -19,9 +19,16 @@ def run_stress_test(
     with open(output_file, "a") as f:
         f.write(f"Stress testing with {num_submissions} submissions\n")
         for i in range(1, num_submissions + 1):
+            tango_cli = os.path.join(tango_path, "clients/tango-cli.py")
+            if not os.path.isfile(tango_cli):
+                raise ValueError(f"Tango CLI not found at: {tango_cli}")
+            if not os.path.exists(job_path):
+                raise ValueError(f"Job path does not exist: {job_path}")
+            if not isinstance(tango_port, int) or not (1024 <= tango_port <= 65535):
+                raise ValueError("Invalid port number")
             command = [
                 "python3",
-                os.path.join(tango_path, "clients/tango-cli.py"),
+                tango_cli,
                 "-P",
                 str(tango_port),
                 "-k",
@@ -33,18 +40,22 @@ def run_stress_test(
                 "--image",
                 autograder_image,
             ]
-            subprocess.run(command, stdout=f, stderr=f)
-            f.write(f"Submission {i} submitted \n")
-
+            try:
+                subprocess.run(command, stdout=f, stderr=f)
+                f.write(f"Submission {i} submitted \n")
+            except subprocess.CalledProcessError as e:
+                f.write(f"Error running submission {i}: {e}\n")
+                continue
             if submission_delay > 0:
                 time.sleep(submission_delay)
 
-    sys.exit()
+    sys.exit(0)
 
 
 def get_metrics(output_file):
-    if Config.LOGFILE == None:
+    if Config.LOGFILE is None:
         print("Make sure logs are recorded in a log file")
+        sys.exit(0)
 
     job_times = []
     with open(Config.LOGFILE, "r") as f:
@@ -59,9 +70,10 @@ def get_metrics(output_file):
             print("No jobs have been completed")
         else:
             avg = sum(job_times) / len(job_times)
-            f.write(f"Average job time is {avg} seconds \n")
+            f.write(f"Total jobs completed: {len(job_times)} \n")
+            f.write(f"Average job time: {avg} seconds \n")
 
-    sys.exit()
+    sys.exit(0)
 
 
 if __name__ == "__main__":
