@@ -146,7 +146,6 @@ class JobQueue(object):
 
         # Adds the job to the live jobs dictionary
         self.liveJobs.set(job.id, job)
-
         # Add this to the unassigned job queue too
         self.unassignedJobs.put(int(job.id))
 
@@ -252,7 +251,9 @@ class JobQueue(object):
         self.log.debug("assignJob| Acquired lock to job queue.")
 
         job = self.liveJobs.get(jobId)
-
+        print(str(job), jobId)
+        # print(str(self.unassignedJobs))
+        # print(str(self.liveJobs))
         # Remove the current job from the queue
         self.unassignedJobs.remove(int(jobId))
 

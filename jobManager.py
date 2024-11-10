@@ -63,8 +63,10 @@ class JobManager(object):
         self.running = True
         while True:
             # Blocks until we get a next job
+            print("WAIT JOB")
             job = self.jobQueue.getNextPendingJob()
-
+            print("new job ", job)
+            self.log.info("JOB ACCESS %s" % job.accessKeyId)
             if not job.accessKey and Config.REUSE_VMS:
                 vm = None
                 while vm is None:
@@ -73,16 +75,22 @@ class JobManager(object):
                     time.sleep(Config.DISPATCH_PERIOD)
 
             try:
-
                 # if the job has specified an account
                 # create an VM on the account and run on that instance
                 if job.accessKeyId:
                     from vmms.ec2SSH import Ec2SSH
 
+                    self.log.info("EC2SSH init")
                     vmms = Ec2SSH(job.accessKeyId, job.accessKey)
                     newVM = copy.deepcopy(job.vm)
                     newVM.id = self._getNextID()
-                    preVM = vmms.initializeVM(newVM)
+                    try:
+                        preVM = vmms.initializeVM(newVM)
+                    except Exception as e:
+                        self.log.error("ERROR initialization VM: %s", e)
+                    if not preVM:
+                        raise BaseException("preVM is NIL!")
+                        # TODO: EXCEPTION HANDLING
                 else:
                     # Try to find a vm on the free list and allocate it to
                     # the worker if successful.
@@ -107,11 +115,15 @@ class JobManager(object):
                     "%s|Dispatched job %s:%d [try %d]"
                     % (datetime.utcnow().ctime(), job.name, job.id, job.retries)
                 )
-                # Mark the job assigned
+                print("Hello")
+                # Mark the ßob assigned
                 self.jobQueue.assignJob(job.id, preVM)
+                print("Hello 3")
                 Worker(job, vmms, self.jobQueue, self.preallocator, preVM).start()
+                print("Hello 2")
 
             except Exception as err:
+                self.log.error("job failed during creation %d %s" % (job.id, str(err)))
                 self.jobQueue.makeDead(job.id, str(err))
 
 
