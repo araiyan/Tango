@@ -115,6 +115,10 @@ class TangoJob(object):
         self.accessKey = accessKey
         self.disableNetwork = disableNetwork
 
+    def __repr__(self):
+        self.syncRemote()
+        return f"ID: {self.id} - Name: {self.name}"
+
     def makeAssigned(self):
         self.syncRemote()
         self.assigned = True
@@ -229,6 +233,14 @@ def TangoQueue(object_name):
 
 class ExtendedQueue(Queue):
     """Python Thread safe Queue with the remove and clean function added"""
+
+    def test(self):
+        print(self.queue)
+
+    def __repr__(self):
+        return str(list(self.queue))
+        # with self.mutex:
+        #     return str(list(self.queue))
 
     def remove(self, value):
         with self.mutex:
@@ -371,6 +383,9 @@ class TangoRemoteDictionary(object):
 class TangoNativeDictionary(object):
     def __init__(self):
         self.dict = {}
+
+    def __repr__(self):
+        return str(self.dict)
 
     def __contains__(self, id):
         return str(id) in self.dict

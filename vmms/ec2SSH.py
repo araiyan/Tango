@@ -564,9 +564,6 @@ class Ec2SSH(object):
         """destroyVM - Removes a VM from the system"""
         self.log.info("destroyVM: %s %s" % (vm.instance_id, vm.name))
 
-        # TODO: decide to keep for debugging
-        # terminate might not be right syntax here
-        return
         try:
             instances = self.boto3resource.instances.filter(
                 InstanceIds=[vm.instance_id]

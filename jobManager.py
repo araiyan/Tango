@@ -63,10 +63,7 @@ class JobManager(object):
         self.running = True
         while True:
             # Blocks until we get a next job
-            print("WAIT JOB")
             job = self.jobQueue.getNextPendingJob()
-            print("new job ", job)
-            self.log.info("JOB ACCESS %s" % job.accessKeyId)
             if not job.accessKey and Config.REUSE_VMS:
                 vm = None
                 while vm is None:
@@ -80,7 +77,6 @@ class JobManager(object):
                 if job.accessKeyId:
                     from vmms.ec2SSH import Ec2SSH
 
-                    self.log.info("EC2SSH init")
                     vmms = Ec2SSH(job.accessKeyId, job.accessKey)
                     newVM = copy.deepcopy(job.vm)
                     newVM.id = self._getNextID()
@@ -115,12 +111,9 @@ class JobManager(object):
                     "%s|Dispatched job %s:%d [try %d]"
                     % (datetime.utcnow().ctime(), job.name, job.id, job.retries)
                 )
-                print("Hello")
-                # Mark the ßob assigned
+                # Mark the job assigned
                 self.jobQueue.assignJob(job.id, preVM)
-                print("Hello 3")
                 Worker(job, vmms, self.jobQueue, self.preallocator, preVM).start()
-                print("Hello 2")
 
             except Exception as err:
                 self.log.error("job failed during creation %d %s" % (job.id, str(err)))
