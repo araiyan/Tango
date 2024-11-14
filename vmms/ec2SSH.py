@@ -131,17 +131,17 @@ class Ec2SSH(object):
             images = self.boto3resource.images.filter(Owners=["self"])
             self.log.debug("IMAGES: ")
             for image in images:
-                print("Image ID:", image.id)
-                print("Name:", image.name)
-                print("State:", image.state)
-                print("Creation Date:", image.creation_date)
-                print("Public:", image.public)
-                print("Architecture:", image.architecture)
-                print("Description:", image.description)
-                print("Tags:", image.tags)
-                print("Root Device Type:", image.root_device_type)
-                print("Virtualization Type:", image.virtualization_type)
-                print("------------------------------------------------")
+                self.log.debug("Image ID: %s", image.id)
+                self.log.debug("Name: %s", image.name)
+                self.log.debug("State: %s", image.state)
+                self.log.debug("Creation Date: %s", image.creation_date)
+                self.log.debug("Public: %s", str(image.public))
+                self.log.debug("Architecture: %s", image.architecture)
+                self.log.debug("Description: %s", image.description)
+                self.log.debug("Tags: %s", str(image.tags))
+                self.log.debug("Root Device Type: %s", image.root_device_type)
+                self.log.debug("Virtualization Type: %s", image.virtualization_type)
+                self.log.debug("------------------------------------------------")
         except Exception as e:
             self.log.error("EC2SSH failed initialization: %s" % (e))
             raise
@@ -380,7 +380,6 @@ class Ec2SSH(object):
         if not self.existsVM(vm):
             self.log.info("VM %s: no longer an instance", vm.name)
             return -1
-        self.log.info("hellow wolrd")
         # First, wait for ping to the vm instance to work
         instance_down = 1
         start_time = time.time()
