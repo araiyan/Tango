@@ -118,6 +118,7 @@ class Ec2SSH(object):
         self.ec2User = config.Config.EC2_USER_NAME
         # use default if accessKeyId/accessKey not provided by user
         # to access another aws account
+        # TODO: add testing to make sure accessKeyId and accessKey valid
         self.useDefaultKeyPair = False if accessKeyId else True
         self.log.info("joys-------------DefaultKeyPair: "+str(self.useDefaultKeyPair))
 
