@@ -165,12 +165,14 @@ class Ec2SSH(object):
         imageAMIs = [item.id for item in images]
         taggedAMIs = [self.img2ami[key].id for key in self.img2ami]
         ignoredAMIs = list(set(imageAMIs) - set(taggedAMIs))
+
         self.log.info("imageAMIs")
         self.log.info(imageAMIs)
         self.log.info("taggedAMIs")
         self.log.info(taggedAMIs)
         self.log.info("ignoredAMIs")
         self.log.info(ignoredAMIs)
+
         if len(ignoredAMIs) > 0:
             self.log.info(
                 "Ignored images %s for lack of or ill-formed name tag"
@@ -214,7 +216,7 @@ class Ec2SSH(object):
         ec2instance["instance_type"] = config.Config.DEFAULT_INST_TYPE
 
         # for now, ami is config default
-        ec2instance["ami"] = config.Config.DEFAULT_AMI
+        ec2instance["ami"] = self.img2ami[vm.image].id
 
         self.log.info("tangoMachineToEC2Instance: %s" % str(ec2instance))
         return ec2instance
@@ -642,7 +644,7 @@ class Ec2SSH(object):
 
     def getImages(self):
         """getImages - return a constant; actually use the ami specified in config"""
-        return ["autograding_image"]
+        return [key for key in self.img2ami]
 
     # getTag: to do later
     def getTag(self, tagList, tagKey):
