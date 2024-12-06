@@ -95,7 +95,8 @@ class Ec2SSH(object):
         "-o",
         "GSSAPIAuthentication no",
     ]
-    
+
+    # same flag as used in PDL
     _SECURITY_KEY_PATH_INDEX_IN_SSH_FLAGS = 1
 
     def __init__(self, accessKeyId=None, accessKey=None):
@@ -111,15 +112,12 @@ class Ec2SSH(object):
         self.log.info("init Ec2SSH in program %s" % (self.appName))
 
         # initialize EC2 USER
-        # PDL gets a ec2user in the parameter, just use the default
-        # user for now
         self.ssh_flags = Ec2SSH._SSH_FLAGS
         self.ec2User = config.Config.EC2_USER_NAME
         # use default if accessKeyId/accessKey not provided by user
         # to access another aws account
-        # TODO: add testing to make sure accessKeyId and accessKey valid
         self.useDefaultKeyPair = False if accessKeyId else True
-        self.log.info("joys-------------DefaultKeyPair: "+str(self.useDefaultKeyPair))
+        self.log.info("Is DefaultKeyPair used: "+str(self.useDefaultKeyPair))
 
         # key pair settings, for now, use default security key
 
@@ -129,9 +127,9 @@ class Ec2SSH(object):
         self.images = []
         try:
             self.boto3resource = boto3.resource("ec2", config.Config.EC2_REGION)
-            # should work according to documentation
-            # if parameters passed in as None, will continue to be passed in as None
-            self.log.info("joys-------------started creating client with accessid")
+            # if parameters passed in as None, will continue to be passed in as None,
+            # fine by AWS documentation
+            self.log.info("Started creating client with accessid")
             self.boto3client = boto3.client("ec2", config.Config.EC2_REGION,
                     aws_access_key_id=accessKeyId, aws_secret_access_key=accessKey)
 
@@ -228,41 +226,28 @@ class Ec2SSH(object):
         return ec2instance
 
     def createKeyPair(self):
-        self.log.info("joys-------------Entered create Key Pair")
-        # TODO: SUPPORT
-        # boto requires keyName, does not require KeyType (rsa is default)
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_key_pair.html
         self.key_pair_path = "%s/%s.pem" % \
                              (config.Config.DYNAMIC_SECURITY_KEY_PATH,
                               self.key_pair_name)
         # delete key pair with same name if it exists
         self.deleteKeyPair()
-        self.log.info("joys-------------Returned from trying to delete key pair")
         # create new key pair with the unique key pair name created
         response = self.boto3client.create_key_pair(KeyName=self.key_pair_name)
-        self.log.info("joys-------------New key pair created")
         # Ensure the directory exists
         directory = os.path.dirname(self.key_pair_path)
         if not os.path.exists(directory):
             os.makedirs(directory)
         # securely store private key material
-        self.log.info("joys-------------key pair path: "+str(self.key_pair_path))
         keyFile = open(self.key_pair_path, "w+")
-        self.log.info("joys-------------writing...")
         keyFile.write(response["KeyMaterial"]) # "KeyMaterial" contains the private key
         os.chmod(self.key_pair_path, 0o600)  # only owner can view
         keyFile.close()
-        self.log.info("joys-------------done storing private key material")
 
         # change the SSH_FLAG accordingly, point to newly created private key file
         self.ssh_flags[Ec2SSH._SECURITY_KEY_PATH_INDEX_IN_SSH_FLAGS] = self.key_pair_path
-        self.log.info("joys-------------done redirecting new private key material")
-        self.log.info("joys-------------key_pair_path: "+str(self.key_pair_path))
         return self.key_pair_path
-    
-    def deleteKeyPair(self):
-        self.log.info("joys-------------Entered delete Key Pair")
 
+    def deleteKeyPair(self):
         # Delete the key pair in AWS
         try:
             self.boto3client.delete_key_pair(KeyName=self.key_pair_name)
@@ -275,19 +260,18 @@ class Ec2SSH(object):
             os.remove(self.key_pair_path)
             self.log.info(f"Deleted key file at '{self.key_pair_path}'.")
         except OSError:
-            self.log.info("joys-------------Error - encountered issue when deleting key pair locally")
+            self.log.info("Encountered issue when deleting key pair locally")
             pass
 
         # Check if the key pair still exists in AWS
         try:
             # Attempt to describe the key pair
             self.boto3client.describe_key_pairs(KeyNames=[self.key_pair_name])
-            self.log.info(f"joys-------------Key pair '{self.key_pair_name}' still exists in AWS.")
         except self.boto3client.exceptions.ClientError as e:
             if "InvalidKeyPair.NotFound" in str(e):
-                self.log.info(f"joys-------------Key pair '{self.key_pair_name}' successfully deleted.")
+                self.log.info(f"Key pair '{self.key_pair_name}' successfully deleted.")
             else:
-                self.log.info(f"joys-------------Unexpected error when checking key pair: {e}")
+                self.log.info(f"Unexpected error when checking key pair: {e}")
 
     def createSecurityGroup(self):
         # Create may-exist security group
@@ -319,19 +303,14 @@ class Ec2SSH(object):
             self.log.debug("instanceName: %s" % instanceName)
             # ensure that security group exists
             self.createSecurityGroup()
-            self.log.info("joys-------------useDefault: "+str(self.useDefaultKeyPair))
             # an EC2 instance can only be associated with one active keypair
             if self.useDefaultKeyPair:
                 self.key_pair_name = config.Config.SECURITY_KEY_NAME
                 self.key_pair_path = config.Config.SECURITY_KEY_PATH
             else:
-                self.log.info("joys-------------HELLLOOO")
-                self.log.info("joys-------------Own Key Pair Created")
                 self.key_pair_name = self.keyPairName(vm.id, vm.name)
                 self.key_pair_path = self.createKeyPair()
-                self.log.info("joys-------------Own Key Pair Created DONE")
 
-            self.log.info("joys-------------Reached Here0")
             reservation = self.boto3resource.create_instances(
                 ImageId=ec2instance["ami"],
                 KeyName=self.key_pair_name,
@@ -341,12 +320,10 @@ class Ec2SSH(object):
                 MinCount=1,
             )
 
-            self.log.info("joys-------------Reached Here1")
             # Sleep for a while to prevent random transient errors observed
             # when the instance is not available yet
             time.sleep(config.Config.TIMER_POLL_INTERVAL)
 
-            self.log.info("joys-------------Reached Here2")
             # reservation is a list of instances created. there is only
             # one instance created so get index 0.
             newInstance = reservation[0]
