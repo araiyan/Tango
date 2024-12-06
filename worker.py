@@ -166,7 +166,7 @@ class Worker(threading.Thread):
             ret["copyout"] = None
             self.log.debug("Run worker")
             vm = None
-
+            print("HELLO")
             # Header message for user
             hdrfile = tempfile.mktemp()
             self.appendMsg(hdrfile, "Received job %s:%d" % (self.job.name, self.job.id))
