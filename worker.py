@@ -164,7 +164,6 @@ class Worker(threading.Thread):
             ret["copyin"] = None
             ret["runjob"] = None
             ret["copyout"] = None
-            print("HELLO")
             self.log.debug("Run worker")
             vm = None
 
