@@ -200,7 +200,7 @@ class Ec2SSH(object):
     # VMMS helper methods
     #
 
-    def tangoMachineToEC2Instance(self, vm):
+    def tangoMachineToEC2Instance(self, vm: TangoMachine):
         """tangoMachineToEC2Instance - returns an object with EC2 instance
         type and AMI. Only general-purpose instances are used. Defalt AMI
         is currently used.
@@ -213,7 +213,10 @@ class Ec2SSH(object):
 
         # for now , can only do default inst type
         # TODO: choose instance type
-        ec2instance["instance_type"] = config.Config.DEFAULT_INST_TYPE
+        if vm.instance_type is not None:
+            ec2instance["instance_type"] = vm.instance_type
+        else:
+            ec2instance["instance_type"] = config.Config.DEFAULT_INST_TYPE
 
         # for now, ami is config default
         ec2instance["ami"] = self.img2ami[vm.image].id

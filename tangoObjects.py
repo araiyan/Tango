@@ -58,6 +58,7 @@ class TangoMachine(object):
         resume=None,
         id=None,
         instance_id=None,
+        instance_type=None,
     ):
         self.name = name
         self.image = image
@@ -71,6 +72,7 @@ class TangoMachine(object):
         self.resume = resume
         self.id = id
         self.instance_id = id
+        self.instance_type = instance_type
 
     def __repr__(self):
         return "TangoMachine(image: %s, vmms: %s)" % (self.image, self.vmms)

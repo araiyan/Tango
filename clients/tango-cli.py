@@ -126,6 +126,7 @@ parser.add_argument(
 # add for aws student accounts
 parser.add_argument("--accessKeyId", default="", help="AWS account access key ID")
 parser.add_argument("--accessKey", default="", help="AWS account access key content")
+parser.add_argument("--instanceType", default="", help="AWS EC2 instance type")
 
 
 def checkKey():
@@ -259,6 +260,7 @@ def tango_addJob():
         requestObj["accessKeyId"] = args.accessKeyId
         requestObj["accessKey"] = args.accessKey
         requestObj["disable_network"] = args.disableNetwork
+        requestObj["instanceType"] = args.instanceType
 
         response = requests.post(
             "%s://%s:%d/addJob/%s/%s/"
