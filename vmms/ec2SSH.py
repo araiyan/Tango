@@ -76,7 +76,21 @@ def timeoutWithReturnStatus(command, time_out, returnValue=0):
             )
             return ret
 
-
+def checkAWSCredentials(access_key_id, secret_access_key):
+    try:
+        # Initialize a session with the provided keys
+        session = boto3.session.Session(
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key
+        )
+        
+        # Use STS to check if credentials are valid
+        sts_client = session.client('sts')
+        sts_client.get_caller_identity()
+    except Exception as e:
+        return False
+    return True
+            
 #
 # User defined exceptions
 #
@@ -130,6 +144,11 @@ class Ec2SSH(object):
         self.images = []
         try:
             self.boto3resource = boto3.resource("ec2", config.Config.EC2_REGION)
+            if accessKeyId != None:
+                if(checkAWSCredentials(accessKeyId, accessKey)):
+                    self.log.info("joys-------------AWS VALID")
+                else:
+                    self.log.info("joys-------------AWS NOT VALID")
             # should work according to documentation
             # if parameters passed in as None, will continue to be passed in as None
             self.log.info("joys-------------started creating client with accessid")
