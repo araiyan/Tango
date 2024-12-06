@@ -167,6 +167,7 @@ class Worker(threading.Thread):
             print("HELLO")
             self.log.debug("Run worker")
             vm = None
+
             # Header message for user
             hdrfile = tempfile.mktemp()
             self.appendMsg(hdrfile, "Received job %s:%d" % (self.job.name, self.job.id))
