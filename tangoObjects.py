@@ -59,6 +59,7 @@ class TangoMachine(object):
         id=None,
         instance_id=None,
         instance_type=None,
+        ec2_vmms=False,
     ):
         self.name = name
         self.image = image
@@ -73,6 +74,7 @@ class TangoMachine(object):
         self.id = id
         self.instance_id = id
         self.instance_type = instance_type
+        self.ec2_vmms = ec2_vmms
 
     def __repr__(self):
         return "TangoMachine(image: %s, vmms: %s)" % (self.image, self.vmms)

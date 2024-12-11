@@ -112,7 +112,12 @@ class TangoREST(object):
                     continue
 
     def createTangoMachine(
-        self, image, instance_type=None, vmms=Config.VMMS_NAME, vmObj=None
+        self,
+        image,
+        instance_type=None,
+        ec2_vmms=False,
+        vmms=Config.VMMS_NAME,
+        vmObj=None,
     ):
         """createTangoMachine - Creates a tango machine object from image"""
         cores = getattr(Config, "DOCKER_CORES_LIMIT", None)
@@ -129,6 +134,7 @@ class TangoREST(object):
             disk=None,
             network=None,
             instance_type=instance_type,
+            ec2_vmms=ec2_vmms,
         )
 
     def convertJobObj(self, dirName, jobObj):
@@ -158,12 +164,16 @@ class TangoREST(object):
             )
             input.append(handinfile)
 
+        ec2_vmms = False
+        if "ec2Vmms" in jobObj:
+            ec2_vmms = True
+
         instance_type = None
         if "instanceType" in jobObj and len(jobObj["instanceType"]) > 0:
             instance_type = jobObj["instanceType"]
 
         # VM object
-        vm = self.createTangoMachine(jobObj["image"], instance_type)
+        vm = self.createTangoMachine(jobObj["image"], instance_type, ec2_vmms)
 
         # for backward compatibility
         accessKeyId = None

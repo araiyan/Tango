@@ -72,9 +72,9 @@ class JobManager(object):
                     time.sleep(Config.DISPATCH_PERIOD)
 
             try:
-                # if the job has specified an account
-                # create an VM on the account and run on that instance
-                if job.accessKeyId:
+                # if the job is a ec2 vmms job
+                # spin up an ec2 instance for that job
+                if job.vm.ec2_vmms:
                     from vmms.ec2SSH import Ec2SSH
 
                     vmms = Ec2SSH(job.accessKeyId, job.accessKey)
@@ -84,9 +84,8 @@ class JobManager(object):
                         preVM = vmms.initializeVM(newVM)
                     except Exception as e:
                         self.log.error("ERROR initialization VM: %s", e)
-                    if not preVM:
-                        raise BaseException("preVM is NIL!")
-                        # TODO: EXCEPTION HANDLING
+                    if preVM is None:
+                        raise Exception("EC2 SSH VM initialization failed: see log")
                 else:
                     # Try to find a vm on the free list and allocate it to
                     # the worker if successful.
