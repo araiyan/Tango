@@ -15,14 +15,20 @@ import os
 import re
 import time
 import logging
-
+import threading
 import config
-
+import backoff
 import boto3
+from botocore.exceptions import ClientError
 
 import pytz
 
 from tangoObjects import TangoMachine
+
+# suppress most boto logging
+logging.getLogger("boto3").setLevel(logging.CRITICAL)
+logging.getLogger("botocore").setLevel(logging.CRITICAL)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.CRITICAL)
 
 
 def timeout(command, time_out=1):
@@ -41,7 +47,8 @@ def timeout(command, time_out=1):
     while t < time_out and p.poll() is None:
         time.sleep(config.Config.TIMER_POLL_INTERVAL)
         t += config.Config.TIMER_POLL_INTERVAL
-
+    if t >= time_out:
+        print("ERROR: timeout trying ", command)
     # Determine why the while loop terminated
     if p.poll() is None:
         try:
@@ -52,6 +59,48 @@ def timeout(command, time_out=1):
     else:
         returncode = p.poll()
     return returncode
+
+
+def timeout_with_retries(command, time_out=1, retries=3, retry_delay=2):
+    """timeout - Run a unix command with a timeout. Return -1 on
+    timeout, otherwise return the return value from the command, which
+    is typically 0 for success, 1-255 for failure.
+    """
+    for attempt in range(retries + 1):
+        # Launch the command
+        p = subprocess.Popen(
+            command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
+        )
+
+        # Wait for the command to complete
+        t = 0.0
+        while t < time_out and p.poll() is None:
+            time.sleep(config.Config.TIMER_POLL_INTERVAL)
+            t += config.Config.TIMER_POLL_INTERVAL
+        if t >= time_out:
+            print("ERROR: timeout trying ", command)
+
+        # Determine why the while loop terminated
+        if p.poll() is None:
+            try:
+                os.kill(p.pid, 9)
+            except OSError:
+                pass
+            returncode = -1
+        else:
+            returncode = p.poll()
+
+        # try to retry the command on a timeout
+        if returncode == -1:
+            if attempt < retries:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                # attempt == retries -> failure
+                print("All retries exhausted.")
+                return -1
+        else:
+            return returncode
 
 
 def timeoutWithReturnStatus(command, time_out, returnValue=0):
@@ -77,6 +126,11 @@ def timeoutWithReturnStatus(command, time_out, returnValue=0):
             return ret
 
 
+@backoff.on_exception(backoff.expo, ClientError, max_tries=3, jitter=None)
+def try_load_instance(newInstance):
+    newInstance.load()
+
+
 #
 # User defined exceptions
 #
@@ -97,6 +151,19 @@ class Ec2SSH(object):
         "GSSAPIAuthentication no",
     ]
 
+    # limit max number of VMS runnning per config
+    _vm_semaphore = threading.Semaphore(config.Config.MAX_EC2_VMS)
+
+    @staticmethod
+    def acquire_vm_semaphore():
+        """Blocks until a VM is available to limit load"""
+        Ec2SSH._vm_semaphore.acquire()  # This blocks until a slot is available
+
+    @staticmethod
+    def release_vm_semaphore():
+        """Releases the VM sempahore"""
+        Ec2SSH._vm_semaphore.release()
+
     def __init__(self, accessKeyId=None, accessKey=None):
         """log - logger for the instance
         connection - EC2Connection object that stores the connection
@@ -104,6 +171,9 @@ class Ec2SSH(object):
         instance - Instance object that stores information about the
         VM created
         """
+        # do not do anything until we acquire a vm semaphore
+        Ec2SSH.acquire_vm_semaphore()
+
         self.appName = os.path.basename(__file__).strip(".py")
         # Setup logger
         self.log = logging.getLogger("Ec2SSH-" + str(os.getpid()))
@@ -124,24 +194,10 @@ class Ec2SSH(object):
         self.images = []
         try:
             self.boto3resource = boto3.resource("ec2", config.Config.EC2_REGION)
-            # idk if works
             self.boto3client = boto3.client("ec2", config.Config.EC2_REGION)
 
             # Get images from ec2
             images = self.boto3resource.images.filter(Owners=["self"])
-            self.log.debug("IMAGES: ")
-            for image in images:
-                self.log.debug("Image ID: %s", image.id)
-                self.log.debug("Name: %s", image.name)
-                self.log.debug("State: %s", image.state)
-                self.log.debug("Creation Date: %s", image.creation_date)
-                self.log.debug("Public: %s", str(image.public))
-                self.log.debug("Architecture: %s", image.architecture)
-                self.log.debug("Description: %s", image.description)
-                self.log.debug("Tags: %s", str(image.tags))
-                self.log.debug("Root Device Type: %s", image.root_device_type)
-                self.log.debug("Virtualization Type: %s", image.virtualization_type)
-                self.log.debug("------------------------------------------------")
         except Exception as e:
             self.log.error("EC2SSH failed initialization: %s" % (e))
             raise
@@ -249,7 +305,22 @@ class Ec2SSH(object):
             pass
 
     def createSecurityGroup(self):
-        # Create may-exist security group
+        try:
+            # Check if the security group already exists
+            response = self.boto3client.describe_security_groups(
+                Filters=[
+                    {
+                        "Name": "group-name",
+                        "Values": [config.Config.DEFAULT_SECURITY_GROUP],
+                    }
+                ]
+            )
+            if response["SecurityGroups"]:
+                security_group_id = response["SecurityGroups"][0]["GroupId"]
+                return
+        except Exception as e:
+            self.log.debug("ERROR checking for existing security group: %s", e)
+
         try:
             response = self.boto3resource.create_security_group(
                 GroupName=config.Config.DEFAULT_SECURITY_GROUP,
@@ -315,7 +386,7 @@ class Ec2SSH(object):
                 instanceRunning = False
 
                 # reload the state of the new instance
-                newInstance.load()
+                try_load_instance(newInstance)
                 for inst in instances.filter(InstanceIds=[newInstance.id]):
                     self.log.debug("VM %s %s: is running" % (vm.name, newInstance.id))
                     instanceRunning = True
@@ -466,7 +537,7 @@ class Ec2SSH(object):
         # Copy the input files to the input directory
         for file in inputFiles:
             self.log.info("%s - %s" % (file.localFile, file.destFile))
-            ret = timeout(
+            ret = timeout_with_retries(
                 ["scp"]
                 + self.ssh_flags
                 + [
@@ -566,7 +637,10 @@ class Ec2SSH(object):
 
     def destroyVM(self, vm):
         """destroyVM - Removes a VM from the system"""
-        self.log.info("destroyVM: %s %s" % (vm.instance_id, vm.name))
+        self.log.info(
+            "destroyVM: %s %s %s %s"
+            % (vm.instance_id, vm.name, vm.keep_for_debugging, vm.notes)
+        )
 
         try:
             instances = self.boto3resource.instances.filter(
@@ -574,12 +648,35 @@ class Ec2SSH(object):
             )
             if not instances:
                 self.log.debug("no instances found with instance id %s", vm.instance_id)
+            # Keep the vm and mark with meaningful tags for debugging
+            if (
+                hasattr(config.Config, "KEEP_VM_AFTER_FAILURE")
+                and config.Config.KEEP_VM_AFTER_FAILURE
+                and vm.keep_for_debugging
+            ):
+                self.log.info("Will keep VM %s for further debugging" % vm.name)
+                # delete original name tag and replace it with "failed-xyz"
+                # add notes tag for test name
+                tag = self.boto3resource.Tag(vm.instance_id, "Name", vm.name)
+                if tag:
+                    tag.delete()
+                self.boto3resource.create_tags(
+                    Resources=[vm.instance_id],
+                    Tags=[
+                        {"Key": "Name", "Value": "failed-" + vm.name},
+                        {"Key": "Notes", "Value": vm.notes},
+                    ],
+                )
+                return
+
             instances.terminate()
             # delete dynamically created key
             if not self.useDefaultKeyPair:
                 self.deleteKeyPair()
         except Exception as e:
             self.log.error("destroyVM failed: %s for vm %s" % (e, vm.instance_id))
+
+        Ec2SSH.release_vm_semaphore()
 
     def safeDestroyVM(self, vm):
         return self.destroyVM(vm)
@@ -656,17 +753,20 @@ class Ec2SSH(object):
                 if tag["Key"] == tagKey:
                     return tag["Value"]
         return None
-    
+
     def getPartialOutput(self, vm):
         domain_name = self.domainName(vm)
 
-        runcmd = "head -c %s /home/autograde/output.log" % (config.Config.MAX_OUTPUT_FILE_SIZE)
+        runcmd = "head -c %s /home/autograde/output.log" % (
+            config.Config.MAX_OUTPUT_FILE_SIZE
+        )
 
-        sshcmd = ["ssh"] + self.ssh_flags + ["%s@%s" % (self.ec2User, domain_name), runcmd]
+        sshcmd = (
+            ["ssh"] + self.ssh_flags + ["%s@%s" % (self.ec2User, domain_name), runcmd]
+        )
 
-        output = subprocess.check_output(
-            sshcmd, stderr=subprocess.STDOUT
-        ).decode("utf-8")
+        output = subprocess.check_output(sshcmd, stderr=subprocess.STDOUT).decode(
+            "utf-8"
+        )
 
         return output
-

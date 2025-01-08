@@ -14,7 +14,7 @@ import copy
 import time
 import logging
 import threading
-
+import traceback
 from datetime import datetime
 
 import tango  # Written this way to avoid circular imports
@@ -84,6 +84,7 @@ class JobManager(object):
                         preVM = vmms.initializeVM(newVM)
                     except Exception as e:
                         self.log.error("ERROR initialization VM: %s", e)
+                        self.log.error(traceback.format_exc())
                     if preVM is None:
                         raise Exception("EC2 SSH VM initialization failed: see log")
                 else:

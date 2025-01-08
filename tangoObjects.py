@@ -74,6 +74,8 @@ class TangoMachine(object):
         self.id = id
         self.instance_id = id
         self.instance_type = instance_type
+        self.keep_for_debugging = False
+        self.notes = None
         self.ec2_vmms = ec2_vmms
 
     def __repr__(self):

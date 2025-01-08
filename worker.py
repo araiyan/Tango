@@ -152,6 +152,19 @@ class Worker(threading.Thread):
         except Exception as e:
             self.log.debug("Error in notifyServer: %s" % str(e))
 
+    def afterJobExecution(self, hdrfile, msg, returnVM):
+        self.jobQueue.makeDead(self.job.id, msg)
+
+        # Update the text that users see in the autodriver output file
+        self.appendMsg(hdrfile, msg)
+        self.catFiles(hdrfile, self.job.outputFile)
+        os.chmod(self.job.outputFile, 0o644)
+
+        # Thread exit after termination
+        self.detachVM(return_vm=returnVM)
+        self.notifyServer(self.job)
+        return
+
     #
     # Main worker function
     #
@@ -224,6 +237,7 @@ class Worker(threading.Thread):
                 self.log.debug("Asigned job to a new VM")
 
             vm = self.job.vm
+            returnVM = True
 
             # Wait for the instance to be ready
             self.log.debug(
@@ -277,6 +291,12 @@ class Worker(threading.Thread):
             ret["copyin"] = self.vmms.copyIn(vm, self.job.input)
             if ret["copyin"] != 0:
                 Config.copyin_errors += 1
+                msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
+                self.job.vm.notes = str(self.job.id) + "_" + self.job.name
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, False)
+                return
+
             self.log.info(
                 "Input copied for job %s:%d [status=%d]"
                 % (self.job.name, self.job.id, ret["copyin"])
@@ -342,6 +362,8 @@ class Worker(threading.Thread):
                     # the VM.
                     msg = "Error: OS error while running job on VM"
                     (returnVM, replaceVM) = (False, True)
+                    self.job.vm.notes = str(self.job.id) + "_" + self.job.name
+                    self.job.vm.keep_for_debugging = True
                 else:  # This should never happen
                     msg = "Error: Unknown autodriver error (status=%d)" % (
                         ret["runjob"]
@@ -350,15 +372,7 @@ class Worker(threading.Thread):
             elif ret["copyout"] != 0:
                 msg += "Error: Copy out from VM failed (status=%d)" % (ret["copyout"])
 
-            self.jobQueue.makeDead(self.job.id, msg)
-
-            # Update the text that users see in the autograder output file
-            self.appendMsg(hdrfile, msg)
-            self.catFiles(hdrfile, self.job.outputFile)
-
-            # Thread exit after termination
-            self.detachVM(return_vm=returnVM, replace_vm=replaceVM)
-            self.notifyServer(self.job)
+            self.afterJobExecution(hdrfile, msg, returnVM)
             return
 
         #
