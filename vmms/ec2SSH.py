@@ -511,7 +511,7 @@ class Ec2SSH(object):
             # Sleep a bit before trying again
             time.sleep(config.Config.TIMER_POLL_INTERVAL)
 
-    def copyIn(self, vm, inputFiles):
+    def copyIn(self, vm, inputFiles, job_id):
         """copyIn - Copy input files to VM"""
         self.log.info("copyIn %s - writing files" % self.instanceName(vm.id, vm.name))
 
@@ -532,9 +532,9 @@ class Ec2SSH(object):
 
         # Print the output and error
         for line in result.stdout:
-            self.log.info("%s" % line)
-        self.log.info("Standard Error: %s" % result.stderr)
-        self.log.info("Return Code: %s" % result.returncode)
+            self.log.info("%s for job $s" % line, job_id)
+        self.log.info("Standard Error: %s, job: %s" % result.stderr, job_id)
+        self.log.info("Return Code: %s, job: %s" % result.returncode, job_id)
         
         # Validate inputFiles structure
         if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
@@ -553,6 +553,7 @@ class Ec2SSH(object):
                 config.Config.COPYIN_TIMEOUT,
             )
             if ret != 0:
+                # why did the scp fail
                 self.log.error("Failed to copy file %s to %s", file.localFile, file.destFile)
             return ret
         

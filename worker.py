@@ -288,7 +288,10 @@ class Worker(threading.Thread):
             )
 
             # Copy input files to VM
-            ret["copyin"] = self.vmms.copyIn(vm, self.job.input)
+            self.log.debug(f"Before copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
+            ret["copyin"] = self.vmms.copyIn(vm, self.job.input, self.job.id)
+            self.log.debug(f"After copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
+
             if ret["copyin"] != 0:
                 Config.copyin_errors += 1
                 msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
