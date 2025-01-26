@@ -516,12 +516,13 @@ class Ec2SSH(object):
 
         domain_name = self.domainName(vm)
 
+        # Creates directory and add permissions
         result = subprocess.run(
             ["ssh"]
             + self.ssh_flags
             + [
                 "%s@%s" % (self.ec2User, domain_name),
-                "(mkdir autolab)",
+                "(mkdir -p autolab && chmod 755 autolab)",
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -533,6 +534,10 @@ class Ec2SSH(object):
             self.log.info("%s" % line)
         self.log.info("Standard Error: %s" % result.stderr)
         self.log.info("Return Code: %s" % result.returncode)
+        
+        # Validate inputFiles structure
+        if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
+            self.log.info("Error: Invalid inputFiles Structure")
 
         # Copy the input files to the input directory
         for file in inputFiles:

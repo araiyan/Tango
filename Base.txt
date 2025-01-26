@@ -1,0 +1,38 @@
+# Autolab - autograding docker image
+
+FROM ubuntu:22.04
+MAINTAINER Carnegie Mellon University <autolab-help@andrew.cmu.edu>
+
+# prevent installing ssh and gnupg as dependencies of build-essential
+COPY apt-preferences /etc/apt/preferences.d/00autolab-ignores
+
+# clean up apt cache/metadata so it doesn't use space in the image
+RUN apt-get update && apt-get upgrade -y &&\
+    apt-get install -y \
+      build-essential wget sudo git \
+      python2 python3 \
+      # 15-462
+      nodejs \
+      # 15-213 and general purpose tools
+      llvm clang clang-format &&\
+    apt-get clean && rm -rf /var/lib/apt/lists
+
+# Install autodriver
+# Autodriver makefile uses sudo, remove it afterwards in case it's unsafe
+WORKDIR /home
+RUN useradd autolab && useradd autograde
+RUN mkdir autolab autograde output &&\
+    chown autolab:autolab autolab output &&\
+    chown autograde:autograde autograde
+RUN git clone https://github.com/autolab/Tango.git &&\
+    cd Tango/autodriver &&\
+    make clean && make &&\
+    install -c -o root -g root -m 4755 autodriver /usr/bin/autodriver &&\
+    rm -rf /home/Tango
+RUN env SUDO_FORCE_REMOVE=yes dpkg -P sudo
+
+WORKDIR /tmp
+RUN wget -q https://c0.cs.cmu.edu/downloads/cc0-debian.deb && dpkg -i cc0-debian.deb && rm cc0-debian.deb
+
+# restore default directory requred for autolab interface to work
+WORKDIR /home
