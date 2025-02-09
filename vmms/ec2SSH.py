@@ -541,20 +541,33 @@ class Ec2SSH(object):
         if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
             self.log.info("Error: Invalid inputFiles Structure, job: %s", job_id)
 
-        for file in inputFiles:
-            self.log.info("%s - %s" % (file.localFile, file.destFile))
+        def scp_file(file):
+            self.log.info("Copying %s to %s", file.localFile, file.destFile)
             ret = timeout_with_retries(
                 ["scp"]
                 + self.ssh_flags
                 + [
                     file.localFile,
-                    "%s@%s:~/autolab/%s" % (self.ec2User, domain_name, file.destFile),
+                    f"{self.ec2User}@{domain_name}:~/autolab/{file.destFile}",
                 ],
                 config.Config.COPYIN_TIMEOUT,
             )
             if ret != 0:
-                self.log.info("Copy-in Error: SCP failure, job: %s", job_id)
-                return ret
+                # why did the scp fail
+                self.log.error("Failed to copy file %s to %s", file.localFile, file.destFile)
+            return ret
+        
+        # TODO: Not sure what max-concurrent should be here
+        max_concurrent = 5
+
+        # Limit the number of concurrent SCP commands
+        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+            results = list(executor.map(scp_file, inputFiles))
+
+        # Check for failures
+        if any(ret != 0 for ret in results):
+            self.log.info("Copy-in Error: One or more files failed to copy")
+            return -1
 
         return 0
 
