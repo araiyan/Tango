@@ -554,7 +554,7 @@ class Ec2SSH(object):
                 config.Config.COPYIN_TIMEOUT,
             )
             if ret != 0:
-                self.log.info("Copy-in Error: SCP failure, job: %s", job_id)
+                self.log.info("Copy-in Error: SCP failure, job: %s" % (job_id))
                 return ret
 
         return 0
