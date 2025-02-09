@@ -532,17 +532,17 @@ class Ec2SSH(object):
 
         # Print the output and error
         for line in result.stdout:
-            self.log.info("%s for job $s" % line, job_id)
-        self.log.info("Return Code: %s, job: %s" % result.returncode, job_id)
+            self.log.info("%s for job %s" % (line, job_id))
+        self.log.info("Return Code: %s, job: %s" % (result.returncode, job_id))
         if result.stderr != 0:
-            self.log.info("Standard Error: %s, job: %s" % result.stderr, job_id)
+            self.log.info("Standard Error: %s, job: %s" % (result.stderr, job_id))
         
         # Validate inputFiles structure
         if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
-            self.log.info("Error: Invalid inputFiles Structure, job: %s", job_id)
+            self.log.info("Error: Invalid inputFiles Structure, job: %s" % (job_id))
 
         def scp_file(file):
-            self.log.info("Copying %s to %s", file.localFile, file.destFile)
+            self.log.info("Copying %s to %s" % (file.localFile, file.destFile)) 
             ret = timeout_with_retries(
                 ["scp"]
                 + self.ssh_flags
@@ -554,7 +554,7 @@ class Ec2SSH(object):
             )
             if ret != 0:
                 # why did the scp fail
-                self.log.error("Failed to copy file %s to %s", file.localFile, file.destFile)
+                self.log.error("Failed to copy file %s to %s" (file.localFile, file.destFile))
             return ret
         
         # TODO: Not sure what max-concurrent should be here
