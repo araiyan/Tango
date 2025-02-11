@@ -77,7 +77,10 @@ class JobManager(object):
                 if job.vm.ec2_vmms:
                     from vmms.ec2SSH import Ec2SSH
 
+                    self.log.error('beforeec2ssh')
                     vmms = Ec2SSH(job.accessKeyId, job.accessKey)
+                    self.log.error('afterec2ssh')
+
                     newVM = copy.deepcopy(job.vm)
                     newVM.id = self._getNextID()
                     try:
@@ -90,6 +93,7 @@ class JobManager(object):
                 else:
                     # Try to find a vm on the free list and allocate it to
                     # the worker if successful.
+                    self.log.error('huh?')
                     if Config.REUSE_VMS:
                         preVM = vm
                     else:

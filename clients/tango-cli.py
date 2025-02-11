@@ -117,6 +117,10 @@ parser.add_argument(
     help="Complete URL for Tango to give callback to once job is complete.",
 )
 parser.add_argument(
+    "--callbackURL",
+    help="Complete URL for Tango to give callback to once job is complete.",
+)
+parser.add_argument(
     "--disableNetwork",
     action="store_true",
     default=False,
@@ -127,7 +131,8 @@ parser.add_argument(
 parser.add_argument("--accessKeyId", default="", help="AWS account access key ID")
 parser.add_argument("--accessKey", default="", help="AWS account access key content")
 parser.add_argument("--instanceType", default="", help="AWS EC2 instance type")
-
+parser.add_argument("--ec2", action="store_true", help="Enable ec2SSH VMMS")
+parser.add_argument("--stopBefore", default="", help="Stops the worker before a function is executed")
 
 def checkKey():
     if args.key is None:
@@ -210,11 +215,11 @@ def tango_upload():
         if res != 0:
             raise Exception("Invalid usage: [upload] " + upload_help)
 
-        f = open(args.filename)
         dirs = args.filename.split("/")
         filename = dirs[len(dirs) - 1]
         header = {"Filename": filename}
 
+        f = open(args.filename, 'rb')
         response = requests.post(
             "%s://%s:%d/upload/%s/%s/"
             % (_tango_protocol, args.server, args.port, args.key, args.courselab),
@@ -257,10 +262,15 @@ def tango_addJob():
         if args.notifyURL:
             requestObj["notifyURL"] = args.notifyURL
 
+        if args.callbackURL:
+            requestObj["callback_url"] = args.callbackURL
+
         requestObj["accessKeyId"] = args.accessKeyId
         requestObj["accessKey"] = args.accessKey
         requestObj["disable_network"] = args.disableNetwork
         requestObj["instanceType"] = args.instanceType
+        requestObj["ec2Vmms"] = args.ec2
+        requestObj["stopBefore"] = args.stopBefore
 
         response = requests.post(
             "%s://%s:%d/addJob/%s/%s/"
