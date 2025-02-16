@@ -319,6 +319,12 @@ class TangoRemoteQueue(object):
     def _clean(self):
         self.__db.delete(self.key)
 
+    def make_empty(self):
+        while True:
+            item = self.__db.lpop(self.key)
+            if item is None:
+                break
+
 
 # This is an abstract class that decides on
 # if we should initiate a TangoRemoteDictionary or TangoNativeDictionary

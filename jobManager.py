@@ -116,8 +116,11 @@ class JobManager(object):
                 Worker(job, vmms, self.jobQueue, self.preallocator, preVM).start()
 
             except Exception as err:
-                self.log.error("job failed during creation %d %s" % (job.id, str(err)))
-                self.jobQueue.makeDead(job.id, str(err))
+                if job is None:
+                    self.log.info("job_manager: job is None")
+                else:
+                    self.log.error("job failed during creation %d %s" % (job.id, str(err)))
+                    self.jobQueue.makeDead(job.id, str(err))
 
 
 if __name__ == "__main__":
@@ -133,6 +136,13 @@ if __name__ == "__main__":
         tango.resetTango(tango.preallocator.vmms)
         for key in tango.preallocator.machines.keys():
             tango.preallocator.machines.set(key, [[], TangoQueue(key)])
+
+            # The above call sets the total pool empty.  But the free pool which
+            # is a queue in redis, may not be empty.  When the job manager restarts,
+            # resetting the free queue using the key doesn't change its content.
+            # Therefore we empty the queue, thus the free pool, to keep it consistent
+            # with the total pool.
+            tango.preallocator.machines.get(key)[1].make_empty()
         jobs = JobManager(tango.jobQueue)
 
         print("Starting the stand-alone Tango JobManager")
