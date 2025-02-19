@@ -100,6 +100,7 @@ class TangoJob(object):
         accessKeyId=None,
         accessKey=None,
         disableNetwork=None,
+        stopBefore="",
     ):
         self.assigned = False
         self.retries = 0
@@ -120,6 +121,7 @@ class TangoJob(object):
         self.accessKeyId = accessKeyId
         self.accessKey = accessKey
         self.disableNetwork = disableNetwork
+        self.stopBefore = stopBefore
 
     def __repr__(self):
         self.syncRemote()

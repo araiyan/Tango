@@ -152,7 +152,7 @@ class Worker(threading.Thread):
         except Exception as e:
             self.log.debug("Error in notifyServer: %s" % str(e))
 
-    def afterJobExecution(self, hdrfile, msg, returnVM):
+    def afterJobExecution(self, hdrfile, msg, returnVM, killVM=True):
         self.jobQueue.makeDead(self.job.id, msg)
 
         # Update the text that users see in the autodriver output file
@@ -161,7 +161,8 @@ class Worker(threading.Thread):
         os.chmod(self.job.outputFile, 0o644)
 
         # Thread exit after termination
-        self.detachVM(return_vm=returnVM)
+        if killVM:
+            self.detachVM(return_vm=returnVM)
         self.notifyServer(self.job)
         return
 
@@ -254,6 +255,11 @@ class Worker(threading.Thread):
                 )
             )
             self.log.debug("Waiting for VM")
+            if (self.job.stopBefore == "waitvm"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                return
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
 
             self.log.debug("Waited for VM")
@@ -287,6 +293,11 @@ class Worker(threading.Thread):
                 )
             )
 
+            if (self.job.stopBefore == "copyin"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                return
             # Copy input files to VM
             self.log.debug(f"Before copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
             ret["copyin"] = self.vmms.copyIn(vm, self.job.input, self.job.id)
@@ -309,6 +320,11 @@ class Worker(threading.Thread):
                 % (datetime.now().ctime(), self.job.name, self.job.id, ret["copyin"])
             )
 
+            if (self.job.stopBefore == "runjob"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                return
             # Run the job on the virtual machine
             ret["runjob"] = self.vmms.runJob(
                 vm,
@@ -329,6 +345,11 @@ class Worker(threading.Thread):
                 % (datetime.now().ctime(), self.job.name, self.job.id, ret["runjob"])
             )
 
+            if (self.job.stopBefore == "copyout"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                return
             # Copy the output back.
             ret["copyout"] = self.vmms.copyOut(vm, self.job.outputFile)
             if ret["copyout"] != 0:

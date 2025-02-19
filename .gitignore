@@ -8,6 +8,8 @@ scripts/*.sh
 vmms/id_rsa*
 courselabs/*
 dockerTmp/*
+id_ed25519
+id_ed25519.pub
 # config
 config.py
 
@@ -27,3 +29,10 @@ pip-selfcheck.json
 
 # Backup files
 *.bak
+
+# Tests
+tests/my_tests/*
+tests/sample_test/output
+tests/sample_test/output/*
+tests/sample_test/log.txt
+tests/sample_test/summary.txt
