@@ -380,8 +380,7 @@ class Ec2SSH(object):
 
             # Use an AWS waiter to wait for the instance to reach the "running" state.
             self.log.info("Waiting for new instance to reach running state for %s" % vm.name);
-            ec2_client = boto3.client("ec2")
-            waiter = ec2_client.get_waiter("instance_running")
+            waiter = self.boto3client.get_waiter("instance_running")
             max_attempts = config.Config.INITIALIZEVM_TIMEOUT // config.Config.TIMER_POLL_INTERVAL
             self.log.info("Waiting for instance %s (%s) to reach 'running' state..." % (vm.name, newInstance.id))
             waiter.wait(
