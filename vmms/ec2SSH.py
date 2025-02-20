@@ -382,7 +382,7 @@ class Ec2SSH(object):
             ec2_client = boto3.client("ec2")
             waiter = ec2_client.get_waiter("instance_running")
             max_attempts = config.Config.INITIALIZEVM_TIMEOUT // config.Config.TIMER_POLL_INTERVAL
-            self.log.info("Waiting for instance %s (%s) to reach 'running' state...", vm.name, newInstance.id)
+            self.log.info("Waiting for instance %s (%s) to reach 'running' state..." % (vm.name, newInstance.id))
             waiter.wait(
                 InstanceIds=[newInstance.id],
                 WaiterConfig={
