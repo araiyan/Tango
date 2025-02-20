@@ -378,47 +378,47 @@ class Ec2SSH(object):
             if not newInstance:
                 raise ValueError("Cannot find new instance for %s" % vm.name)
 
-            # Use an AWS waiter to wait for the instance to reach the "running" state.
-            self.log.info("Waiting for new instance to reach running state for %s" % vm.name);
-            waiter = self.boto3client.get_waiter("instance_running")
-            max_attempts = config.Config.INITIALIZEVM_TIMEOUT // config.Config.TIMER_POLL_INTERVAL
-            self.log.info("Waiting for instance %s (%s) to reach 'running' state..." % (vm.name, newInstance.id))
-            waiter.wait(
-                InstanceIds=[newInstance.id],
-                WaiterConfig={
-                    "Delay": config.Config.TIMER_POLL_INTERVAL,
-                    "MaxAttempts": max_attempts,
-                },
-            )
+            # # Use an AWS waiter to wait for the instance to reach the "running" state.
+            # self.log.info("Waiting for new instance to reach running state for %s" % vm.name);
+            # waiter = self.boto3client.get_waiter("instance_running")
+            # max_attempts = config.Config.INITIALIZEVM_TIMEOUT // config.Config.TIMER_POLL_INTERVAL
+            # self.log.info("Waiting for instance %s (%s) to reach 'running' state..." % (vm.name, newInstance.id))
+            # waiter.wait(
+            #     InstanceIds=[newInstance.id],
+            #     WaiterConfig={
+            #         "Delay": config.Config.TIMER_POLL_INTERVAL,
+            #         "MaxAttempts": max_attempts,
+            #     },
+            # )
 
-            # # Wait for instance to reach 'running' state
-            # start_time = time.time()
-            # while True:
-            #
-            #     filters = [{"Name": "instance-state-name", "Values": ["running"]}]
-            #     instances = self.boto3resource.instances.filter(Filters=filters)
-            #     instanceRunning = False
-            #
-            #     # reload the state of the new instance
-            #     try_load_instance(newInstance)
-            #     for inst in instances.filter(InstanceIds=[newInstance.id]):
-            #         self.log.debug("VM %s %s: is running" % (vm.name, newInstance.id))
-            #         instanceRunning = True
-            #
-            #     if instanceRunning:
-            #         break
-            #
-            #     if time.time() - start_time > config.Config.INITIALIZEVM_TIMEOUT:
-            #         raise ValueError(
-            #             "VM %s %s: timeout (%d seconds) before reaching 'running' state"
-            #             % (vm.name, newInstance.id, config.Config.TIMER_POLL_INTERVAL)
-            #         )
-            #
-            #     self.log.debug(
-            #         "VM %s %s: Waiting to reach 'running' from 'pending'"
-            #         % (vm.name, newInstance.id)
-            #     )
-            #     time.sleep(config.Config.TIMER_POLL_INTERVAL)
+            # Wait for instance to reach 'running' state
+            start_time = time.time()
+            while True:
+
+                filters = [{"Name": "instance-state-name", "Values": ["running"]}]
+                instances = self.boto3resource.instances.filter(Filters=filters)
+                instanceRunning = False
+
+                # reload the state of the new instance
+                try_load_instance(newInstance)
+                for inst in instances.filter(InstanceIds=[newInstance.id]):
+                    self.log.debug("VM %s %s: is running" % (vm.name, newInstance.id))
+                    instanceRunning = True
+
+                if instanceRunning:
+                    break
+
+                if time.time() - start_time > config.Config.INITIALIZEVM_TIMEOUT:
+                    raise ValueError(
+                        "VM %s %s: timeout (%d seconds) before reaching 'running' state"
+                        % (vm.name, newInstance.id, config.Config.TIMER_POLL_INTERVAL)
+                    )
+
+                self.log.debug(
+                    "VM %s %s: Waiting to reach 'running' from 'pending'"
+                    % (vm.name, newInstance.id)
+                )
+                time.sleep(config.Config.TIMER_POLL_INTERVAL)
 
             # Assign name to EC2 instance
             self.boto3resource.create_tags(
