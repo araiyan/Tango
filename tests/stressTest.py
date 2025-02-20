@@ -37,7 +37,7 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
         print()
 
 def run_stress_test(num_submissions, submission_delay, autograder_image, output_file, tango_port, cli_path, 
-                    job_name, job_path, instance_type, timeout, ec2):
+                    job_name, job_path, instance_type, timeout, ec2, stopBefore):
     printProgressBar(0, num_submissions, prefix = 'Jobs Added:', suffix = 'Complete', length = 50)
     with open(output_file, 'a') as f:
         f.write(f"Stress testing with {num_submissions} submissions\n")
@@ -56,6 +56,8 @@ def run_stress_test(num_submissions, submission_delay, autograder_image, output_
             ]
             if ec2:
                 command += ['--ec2']
+            if stopBefore is not None:
+                command += ['--stopBefore', stopBefore]
             subprocess.run(command, stdout=f, stderr=f)
             f.write(f"Submission {i} completed\n")
             printProgressBar(i, num_submissions, prefix = 'Jobs Added:', suffix = 'Complete', length = 50)
@@ -78,6 +80,7 @@ class AutogradeDoneHandler(tornado.web.RequestHandler):
         printProgressBar(len(finished_tests), sub_num, prefix = 'Tests Done:', suffix = 'Complete', length = 50)
         if len(finished_tests) == sub_num:
             self.write("ok")
+            self.flush()
             print()
             create_summary()
             print("Test Summary in summary.txt")
@@ -101,8 +104,8 @@ def create_summary():
         f.write(expected_output)
         f.write("\n\n===========================================================\n")
         f.write("Failed Cases:\n")
-        for i in range(1, len(failed)):
-            f.write("Test Case #%d: %s\n" % (i, finished_tests[str(i)]))
+        for i in range(0, len(failed)):
+            f.write("Test Case #%d: %s\n" % (failed[i], finished_tests[str(failed[i])]))
 
 def make_app():
     return tornado.web.Application([
@@ -152,7 +155,8 @@ if __name__ == "__main__":
         os.path.join(args.test_dir, 'input'),
         data["instance_type"],
         data["timeout"],
-        data["ec2"]
+        data["ec2"],
+        data["stop_before"],
     )
 
     asyncio.run(notifyServer())
