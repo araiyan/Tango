@@ -507,8 +507,8 @@ class Ec2SSH(object):
 
             if (ret != -1) and (ret != 255):
                 additional_wait = 10  # seconds
-                self.log.info("Instance %s is ready. Waiting an additional %d seconds for stabilization.", vm.name,
-                              additional_wait)
+                self.log.info("Instance %s is ready. Waiting an additional %d seconds for stabilization." % (vm.name,
+                                                                                                             additional_wait))
                 time.sleep(additional_wait)
                 return 0
 
@@ -540,7 +540,7 @@ class Ec2SSH(object):
         self.log.info("Return Code: %s, job: %s" % (result.returncode, job_id))
         if result.stderr != 0:
             self.log.info("Standard Error: %s, job: %s" % (result.stderr, job_id))
-        
+
         # Validate inputFiles structure
         if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
             self.log.info("Error: Invalid inputFiles Structure, job: %s" % (job_id))
@@ -573,14 +573,14 @@ class Ec2SSH(object):
         )
         # Setting ulimits for VM and running job
         runcmd = (
-            "/usr/bin/time --output=time.out autodriver \
+                "/usr/bin/time --output=time.out autodriver \
                 -u %d -f %d -t %d -o %d autolab > output 2>&1 "
-            % (
-                config.Config.VM_ULIMIT_USER_PROC,
-                config.Config.VM_ULIMIT_FILE_SIZE,
-                runTimeout,
-                maxOutputFileSize,
-            )
+                % (
+                    config.Config.VM_ULIMIT_USER_PROC,
+                    config.Config.VM_ULIMIT_FILE_SIZE,
+                    runTimeout,
+                    maxOutputFileSize,
+                )
         )
         # no logging for now
 
@@ -661,9 +661,9 @@ class Ec2SSH(object):
                 self.log.debug("no instances found with instance id %s", vm.instance_id)
             # Keep the vm and mark with meaningful tags for debugging
             if (
-                hasattr(config.Config, "KEEP_VM_AFTER_FAILURE")
-                and config.Config.KEEP_VM_AFTER_FAILURE
-                and vm.keep_for_debugging
+                    hasattr(config.Config, "KEEP_VM_AFTER_FAILURE")
+                    and config.Config.KEEP_VM_AFTER_FAILURE
+                    and vm.keep_for_debugging
             ):
                 self.log.info("Will keep VM %s for further debugging" % vm.name)
                 # delete original name tag and replace it with "failed-xyz"
@@ -773,7 +773,7 @@ class Ec2SSH(object):
         )
 
         sshcmd = (
-            ["ssh"] + self.ssh_flags + ["%s@%s" % (self.ec2User, domain_name), runcmd]
+                ["ssh"] + self.ssh_flags + ["%s@%s" % (self.ec2User, domain_name), runcmd]
         )
 
         output = subprocess.check_output(sshcmd, stderr=subprocess.STDOUT).decode(
