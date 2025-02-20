@@ -255,7 +255,7 @@ class Worker(threading.Thread):
                 )
             )
             self.log.debug("Waiting for VM")
-            if (self.job.stopBefore == "waitvm"):
+            if self.job.stopBefore == "waitvm":
                 msg = "Execution stopped before %s" % self.job.stopBefore
                 returnVM = True
                 self.afterJobExecution(hdrfile, msg, returnVM, False)

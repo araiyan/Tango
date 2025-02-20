@@ -121,7 +121,7 @@ class TangoJob(object):
         self.accessKeyId = accessKeyId
         self.accessKey = accessKey
         self.disableNetwork = disableNetwork
-        self.stopBefore = ""
+        self.stopBefore = "stopBefore"
 
     def __repr__(self):
         self.syncRemote()

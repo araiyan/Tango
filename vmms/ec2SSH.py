@@ -519,10 +519,6 @@ class Ec2SSH(object):
             self.log.debug("VM %s: ssh returned with %d" % (vm.name, ret))
 
             if (ret != -1) and (ret != 255):
-                additional_wait = 2  # seconds
-                self.log.info("Instance %s is ready. Waiting an additional %d seconds for stabilization." % (vm.name,
-                                                                                                             additional_wait))
-                time.sleep(additional_wait)
                 return 0
 
             # Sleep a bit before trying again
