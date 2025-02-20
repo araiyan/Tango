@@ -506,6 +506,10 @@ class Ec2SSH(object):
             self.log.debug("VM %s: ssh returned with %d" % (vm.name, ret))
 
             if (ret != -1) and (ret != 255):
+                additional_wait = 10  # seconds
+                self.log.info("Instance %s is ready. Waiting an additional %d seconds for stabilization.", vm.name,
+                              additional_wait)
+                time.sleep(additional_wait)
                 return 0
 
             # Sleep a bit before trying again
@@ -541,7 +545,6 @@ class Ec2SSH(object):
         if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
             self.log.info("Error: Invalid inputFiles Structure, job: %s" % (job_id))
 
-        
         for file in inputFiles:
             self.log.info("%s - %s" % (file.localFile, file.destFile))
             ret = timeout_with_retries(
