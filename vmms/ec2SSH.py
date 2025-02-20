@@ -379,6 +379,7 @@ class Ec2SSH(object):
                 raise ValueError("Cannot find new instance for %s" % vm.name)
 
             # Use an AWS waiter to wait for the instance to reach the "running" state.
+            self.log.info("Waiting for new instance to reach running state for %s" % vm.name);
             ec2_client = boto3.client("ec2")
             waiter = ec2_client.get_waiter("instance_running")
             max_attempts = config.Config.INITIALIZEVM_TIMEOUT // config.Config.TIMER_POLL_INTERVAL
@@ -519,7 +520,7 @@ class Ec2SSH(object):
             self.log.debug("VM %s: ssh returned with %d" % (vm.name, ret))
 
             if (ret != -1) and (ret != 255):
-                additional_wait = 10  # seconds
+                additional_wait = 2  # seconds
                 self.log.info("Instance %s is ready. Waiting an additional %d seconds for stabilization." % (vm.name,
                                                                                                              additional_wait))
                 time.sleep(additional_wait)
@@ -556,7 +557,7 @@ class Ec2SSH(object):
 
         # Validate inputFiles structure
         if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
-            self.log.info("Error: Invalid inputFiles Structure, job: %s" % (job_id))
+            self.log.info("Error: Invalid inputFiles Structure, job: %s" % job_id)
 
         for file in inputFiles:
             self.log.info("%s - %s" % (file.localFile, file.destFile))
@@ -570,7 +571,7 @@ class Ec2SSH(object):
                 config.Config.COPYIN_TIMEOUT,
             )
             if ret != 0:
-                self.log.info("Copy-in Error: SCP failure, job: %s" % (job_id))
+                self.log.info("Copy-in Error: SCP failure, job: %s" % job_id)
                 return ret
 
         return 0
