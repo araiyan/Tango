@@ -10,20 +10,20 @@
 #
 # TODO: this currently probably does not work on Python 3 yet
 
-import subprocess
+import logging
 import os
 import re
-import time
-import logging
+import subprocess
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
-import config
+
 import backoff
 import boto3
+import pytz
 from botocore.exceptions import ClientError
 
-import pytz
-
+import config
 from tangoObjects import TangoMachine
 
 # suppress most boto logging
@@ -395,23 +395,34 @@ class Ec2SSH(object):
             start_time = time.time()
             while True:
 
-                filters = [{"Name": "instance-state-name", "Values": ["running"]}]
+                filters = [
+                    {"Name": "instance-state-name", "Values": ["running"]}
+                ]
                 instances = self.boto3resource.instances.filter(Filters=filters)
                 instanceRunning = False
 
                 # reload the state of the new instance
                 try_load_instance(newInstance)
                 for inst in instances.filter(InstanceIds=[newInstance.id]):
-                    self.log.debug("VM %s %s: is running" % (vm.name, newInstance.id))
+                    self.log.debug(
+                        "VM %s %s: is running" % (vm.name, newInstance.id)
+                    )
                     instanceRunning = True
 
                 if instanceRunning:
                     break
 
-                if time.time() - start_time > config.Config.INITIALIZEVM_TIMEOUT:
+                if (
+                    time.time() - start_time
+                    > config.Config.INITIALIZEVM_TIMEOUT
+                ):
                     raise ValueError(
                         "VM %s %s: timeout (%d seconds) before reaching 'running' state"
-                        % (vm.name, newInstance.id, config.Config.TIMER_POLL_INTERVAL)
+                        % (
+                            vm.name,
+                            newInstance.id,
+                            config.Config.TIMER_POLL_INTERVAL,
+                        )
                     )
 
                 self.log.debug(
@@ -422,7 +433,8 @@ class Ec2SSH(object):
 
             # Assign name to EC2 instance
             self.boto3resource.create_tags(
-                Resources=[newInstance.id], Tags=[{"Key": "Name", "Value": vm.name}]
+                Resources=[newInstance.id],
+                Tags=[{"Key": "Name", "Value": vm.name}],
             )
 
             self.log.info(
@@ -526,7 +538,9 @@ class Ec2SSH(object):
 
     def copyIn(self, vm, inputFiles, job_id):
         """copyIn - Copy input files to VM"""
-        self.log.info("copyIn %s - writing files" % self.instanceName(vm.id, vm.name))
+        self.log.info(
+            "copyIn %s - writing files" % self.instanceName(vm.id, vm.name)
+        )
 
         domain_name = self.domainName(vm)
 
@@ -548,11 +562,18 @@ class Ec2SSH(object):
             self.log.info("%s for job %s" % (line, job_id))
         self.log.info("Return Code: %s, job: %s" % (result.returncode, job_id))
         if result.stderr != 0:
-            self.log.info("Standard Error: %s, job: %s" % (result.stderr, job_id))
+            self.log.info(
+                "Standard Error: %s, job: %s" % (result.stderr, job_id)
+            )
 
         # Validate inputFiles structure
-        if not inputFiles or not all(hasattr(file, 'localFile') and hasattr(file, 'destFile') for file in inputFiles):
-            self.log.info("Error: Invalid inputFiles Structure, job: %s" % job_id)
+        if not inputFiles or not all(
+            hasattr(file, "localFile") and hasattr(file, "destFile")
+            for file in inputFiles
+        ):
+            self.log.info(
+                "Error: Invalid inputFiles Structure, job: %s" % job_id
+            )
 
         for file in inputFiles:
             self.log.info("%s - %s" % (file.localFile, file.destFile))
@@ -561,7 +582,8 @@ class Ec2SSH(object):
                 + self.ssh_flags
                 + [
                     file.localFile,
-                    "%s@%s:~/autolab/%s" % (self.ec2User, domain_name, file.destFile),
+                    "%s@%s:autolab/%s"
+                    % (self.ec2User, domain_name, file.destFile),
                 ],
                 config.Config.COPYIN_TIMEOUT,
             )
@@ -581,20 +603,18 @@ class Ec2SSH(object):
             "runJob: Running job on VM %s" % self.instanceName(vm.id, vm.name)
         )
         # Setting ulimits for VM and running job
-        runcmd = (
-                "/usr/bin/time --output=time.out autodriver \
-                -u %d -f %d -t %d -o %d autolab > output 2>&1 "
-                % (
-                    config.Config.VM_ULIMIT_USER_PROC,
-                    config.Config.VM_ULIMIT_FILE_SIZE,
-                    runTimeout,
-                    maxOutputFileSize,
-                )
+        runcmd = "autodriver -u %d -f %d -t %d -o %d autolab &> output" % (
+            config.Config.VM_ULIMIT_USER_PROC,
+            config.Config.VM_ULIMIT_FILE_SIZE,
+            runTimeout,
+            maxOutputFileSize,
         )
         # no logging for now
 
         ret = timeout(
-            ["ssh"] + self.ssh_flags + ["%s@%s" % (self.ec2User, domain_name), runcmd],
+            ["ssh"]
+            + self.ssh_flags
+            + ["%s@%s" % (self.ec2User, domain_name), runcmd],
             runTimeout * 2,
         )
 
@@ -606,7 +626,9 @@ class Ec2SSH(object):
         outputFile on the Tango host.
         """
         self.log.info(
-            "copyOut %s - writing to %s", self.instanceName(vm.id, vm.name), destFile
+            "copyOut %s - writing to %s",
+            self.instanceName(vm.id, vm.name),
+            destFile,
         )
         domain_name = self.domainName(vm)
 
@@ -651,7 +673,10 @@ class Ec2SSH(object):
         return timeout(
             ["scp"]
             + self.ssh_flags
-            + ["%s@%s:output" % (config.Config.EC2_USER_NAME, domain_name), destFile],
+            + [
+                "%s@%s:output" % (config.Config.EC2_USER_NAME, domain_name),
+                destFile,
+            ],
             config.Config.COPYOUT_TIMEOUT,
         )
 
@@ -667,12 +692,14 @@ class Ec2SSH(object):
                 InstanceIds=[vm.instance_id]
             )
             if not instances:
-                self.log.debug("no instances found with instance id %s", vm.instance_id)
+                self.log.debug(
+                    "no instances found with instance id %s", vm.instance_id
+                )
             # Keep the vm and mark with meaningful tags for debugging
             if (
-                    hasattr(config.Config, "KEEP_VM_AFTER_FAILURE")
-                    and config.Config.KEEP_VM_AFTER_FAILURE
-                    and vm.keep_for_debugging
+                hasattr(config.Config, "KEEP_VM_AFTER_FAILURE")
+                and config.Config.KEEP_VM_AFTER_FAILURE
+                and vm.keep_for_debugging
             ):
                 self.log.info("Will keep VM %s for further debugging" % vm.name)
                 # delete original name tag and replace it with "failed-xyz"
@@ -694,7 +721,9 @@ class Ec2SSH(object):
             if not self.useDefaultKeyPair:
                 self.deleteKeyPair()
         except Exception as e:
-            self.log.error("destroyVM failed: %s for vm %s" % (e, vm.instance_id))
+            self.log.error(
+                "destroyVM failed: %s for vm %s" % (e, vm.instance_id)
+            )
 
         Ec2SSH.release_vm_semaphore()
 
@@ -708,7 +737,10 @@ class Ec2SSH(object):
         try:
             vms = list()
             filters = [
-                {"Name": "instance-state-name", "Values": ["running", "pending"]}
+                {
+                    "Name": "instance-state-name",
+                    "Values": ["running", "pending"],
+                }
             ]
             # gets all running instances
             instances = self.boto3resource.instances.filter(Filters=filters)
@@ -725,8 +757,13 @@ class Ec2SSH(object):
                     instance.tags, "Name"
                 )  # inst name PREFIX-serial-IMAGE
                 # Name tag is the standard form of prefix-serial-image
-                if not (instName and re.match("%s-" % config.Config.PREFIX, instName)):
-                    self.log.debug("getVMs: Instance id %s skipped" % vm.instance_id)
+                if not (
+                    instName
+                    and re.match("%s-" % config.Config.PREFIX, instName)
+                ):
+                    self.log.debug(
+                        "getVMs: Instance id %s skipped" % vm.instance_id
+                    )
                     continue  # instance without name tag or proper prefix
 
                 vm.name = instName
@@ -740,7 +777,8 @@ class Ec2SSH(object):
 
                 vms.append(vm)
                 self.log.debug(
-                    "getVMs: Instance id %s, name %s" % (vm.instance_id, vm.name)
+                    "getVMs: Instance id %s, name %s"
+                    % (vm.instance_id, vm.name)
                 )
         except Exception as e:
             self.log.debug("getVMs Failed: %s" % e)
@@ -782,11 +820,13 @@ class Ec2SSH(object):
         )
 
         sshcmd = (
-                ["ssh"] + self.ssh_flags + ["%s@%s" % (self.ec2User, domain_name), runcmd]
+            ["ssh"]
+            + self.ssh_flags
+            + ["%s@%s" % (self.ec2User, domain_name), runcmd]
         )
 
-        output = subprocess.check_output(sshcmd, stderr=subprocess.STDOUT).decode(
-            "utf-8"
-        )
+        output = subprocess.check_output(
+            sshcmd, stderr=subprocess.STDOUT
+        ).decode("utf-8")
 
         return output
