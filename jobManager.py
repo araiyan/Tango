@@ -11,9 +11,9 @@
 #
 
 import copy
-import time
 import logging
 import threading
+import time
 import traceback
 from datetime import datetime
 
@@ -21,8 +21,6 @@ import tango  # Written this way to avoid circular imports
 from config import Config
 from tangoObjects import TangoQueue
 from worker import Worker
-from preallocator import Preallocator
-from jobQueue import JobQueue
 
 
 class JobManager(object):
@@ -77,9 +75,7 @@ class JobManager(object):
                 if job.vm.ec2_vmms:
                     from vmms.ec2SSH import Ec2SSH
 
-                    self.log.error('beforeec2ssh')
                     vmms = Ec2SSH(job.accessKeyId, job.accessKey)
-                    self.log.error('afterec2ssh')
 
                     newVM = copy.deepcopy(job.vm)
                     newVM.id = self._getNextID()
@@ -89,11 +85,12 @@ class JobManager(object):
                         self.log.error("ERROR initialization VM: %s", e)
                         self.log.error(traceback.format_exc())
                     if preVM is None:
-                        raise Exception("EC2 SSH VM initialization failed: see log")
+                        raise Exception(
+                            "EC2 SSH VM initialization failed: see log"
+                        )
                 else:
                     # Try to find a vm on the free list and allocate it to
                     # the worker if successful.
-                    self.log.error('huh?')
                     if Config.REUSE_VMS:
                         preVM = vm
                     else:
@@ -117,13 +114,17 @@ class JobManager(object):
                 )
                 # Mark the job assigned
                 self.jobQueue.assignJob(job.id, preVM)
-                Worker(job, vmms, self.jobQueue, self.preallocator, preVM).start()
+                Worker(
+                    job, vmms, self.jobQueue, self.preallocator, preVM
+                ).start()
 
             except Exception as err:
                 if job is None:
                     self.log.info("job_manager: job is None")
                 else:
-                    self.log.error("job failed during creation %d %s" % (job.id, str(err)))
+                    self.log.error(
+                        "job failed during creation %d %s" % (job.id, str(err))
+                    )
                     self.jobQueue.makeDead(job.id, str(err))
 
 
