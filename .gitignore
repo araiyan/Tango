@@ -35,6 +35,3 @@ pip-selfcheck.json
 # Tests
 tests/*
 !tests/*.py
-!tests/sample_test/input
-!tests/sample_test/sample_test.yaml
-!tests/sample_test/expected_output.txt
