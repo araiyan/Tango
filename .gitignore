@@ -29,6 +29,9 @@ pip-selfcheck.json
 # Backup files
 *.bak
 
+# Redis
+*.rdb
+
 # Tests
 tests/*
 !tests/*.py
