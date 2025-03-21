@@ -77,6 +77,11 @@ class Worker(threading.Thread):
 
         # Try a few times before giving up
         if self.job.retries < Config.JOB_RETRIES:
+            self.log.error("Retrying job %s:%d, retries: %d" % (self.job.name, self.job.id, self.job.retries))
+            self.job.appendTrace(
+                "%s|Retrying job %s:%d, retries: %d"
+                % (datetime.now().ctime(), self.job.name, self.job.id, self.job.retries)
+            )
             try:
                 os.remove(hdrfile)
             except OSError:
@@ -86,7 +91,12 @@ class Worker(threading.Thread):
 
         # Here is where we give up
         else:
-            self.jobQueue.makeDead(self.job.id, err)
+            self.log.error("Giving up on job %s:%d" % (self.job.name, self.job.id))
+            self.job.appendTrace(
+                "%s|Giving up on job %s:%d"
+                % (datetime.now().ctime(), self.job.name, self.job.id)
+            )
+            self.jobQueue.makeDead(self.job.id, err) # Note: this reports the error that caused the last call to rescheduleJob to fail
 
             self.appendMsg(
                 hdrfile,
@@ -149,6 +159,8 @@ class Worker(threading.Thread):
                     % (job.notifyURL, response.content)
                 )
                 fh.close()
+            else:
+                self.log.info("No callback URL for job %s:%d" % (self.job.name, self.job.id))
         except Exception as e:
             self.log.debug("Error in notifyServer: %s" % str(e))
 

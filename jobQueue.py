@@ -281,9 +281,9 @@ class JobQueue(object):
 
         # Increment the number of retires
         if job.retries is None:
-            job.retries = 0
+            job.resetRetries()
         else:
-            job.retries += 1
+            job.incrementRetries()
             Config.job_retries += 1
 
         self.log.info("unassignJob|Unassigning job %s" % str(job.id))

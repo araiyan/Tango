@@ -102,8 +102,8 @@ class TangoJob(object):
         disableNetwork=None,
         stopBefore="",
     ):
-        self.assigned = False
-        self.retries = 0
+        self._assigned = False
+        self._retries = 0
 
         self.vm = vm
         if input is None:
@@ -126,10 +126,31 @@ class TangoJob(object):
     def __repr__(self):
         self.syncRemote()
         return f"ID: {self.id} - Name: {self.name}"
+    
+    # Getters for private variables
+    @property
+    def assigned(self):
+        self.syncRemote() # Is it necessary to sync here?
+        return self._assigned
+    
+    @property
+    def retries(self):
+        self.syncRemote()
+        return self._retries
 
     def makeAssigned(self):
         self.syncRemote()
-        self.assigned = True
+        self._assigned = True
+        self.updateRemote()
+
+    def resetRetries(self):
+        self.syncRemote()
+        self._retries = 0
+        self.updateRemote()
+        
+    def incrementRetries(self):
+        self.syncRemote()
+        self._retries += 1
         self.updateRemote()
 
     def makeVM(self, vm):
@@ -139,12 +160,12 @@ class TangoJob(object):
 
     def makeUnassigned(self):
         self.syncRemote()
-        self.assigned = False
+        self._assigned = False
         self.updateRemote()
 
     def isNotAssigned(self):
         self.syncRemote()
-        return not self.assigned
+        return not self._assigned
 
     def appendTrace(self, trace_str):
         self.syncRemote()
@@ -161,24 +182,10 @@ class TangoJob(object):
             self._remoteLocation = dict_hash + ":" + str(new_id)
             self.updateRemote()
 
-    def syncRemote(self):
-        if Config.USE_REDIS and self._remoteLocation is not None:
-            dict_hash = self._remoteLocation.split(":")[0]
-            key = self._remoteLocation.split(":")[1]
-            dictionary = TangoDictionary(dict_hash)
-            temp_job = dictionary.get(key)
-            self.updateSelf(temp_job)
-
-    def updateRemote(self):
-        if Config.USE_REDIS and self._remoteLocation is not None:
-            dict_hash = self._remoteLocation.split(":")[0]
-            key = self._remoteLocation.split(":")[1]
-            dictionary = TangoDictionary(dict_hash)
-            dictionary.set(key, self)
-
-    def updateSelf(self, other_job):
-        self.assigned = other_job.assigned
-        self.retries = other_job.retries
+    # Private method
+    def __updateSelf(self, other_job):
+        self._assigned = other_job._assigned
+        self._retries = other_job._retries
         self.vm = other_job.vm
         self.input = other_job.input
         self.outputFile = other_job.outputFile
@@ -187,6 +194,22 @@ class TangoJob(object):
         self.timeout = other_job.timeout
         self.trace = other_job.trace
         self.maxOutputFileSize = other_job.maxOutputFileSize
+
+
+    def syncRemote(self):
+        if Config.USE_REDIS and self._remoteLocation is not None:
+            dict_hash = self._remoteLocation.split(":")[0]
+            key = self._remoteLocation.split(":")[1]
+            dictionary = TangoDictionary(dict_hash)
+            temp_job = dictionary.get(key)
+            self.__updateSelf(temp_job)
+
+    def updateRemote(self):
+        if Config.USE_REDIS and self._remoteLocation is not None:
+            dict_hash = self._remoteLocation.split(":")[0]
+            key = self._remoteLocation.split(":")[1]
+            dictionary = TangoDictionary(dict_hash)
+            dictionary.set(key, self)
 
 
 def TangoIntValue(object_name, obj):
