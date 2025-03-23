@@ -105,23 +105,23 @@ class TangoJob(object):
         self._assigned = False
         self._retries = 0
 
-        self.vm = vm
+        self._vm = vm
         if input is None:
-            self.input = []
+            self._input = []
         else:
-            self.input = input
+            self._input = input
 
-        self.outputFile = outputFile
-        self.name = name
-        self.notifyURL = notifyURL
-        self.timeout = timeout
-        self.trace = []
-        self.maxOutputFileSize = maxOutputFileSize
+        self._outputFile = outputFile
+        self._name = name
+        self._notifyURL = notifyURL
+        self._timeout = timeout # How long to run the autodriver on the job for before timing out.
+        self._trace = []
+        self._maxOutputFileSize = maxOutputFileSize
         self._remoteLocation = None
-        self.accessKeyId = accessKeyId
-        self.accessKey = accessKey
-        self.disableNetwork = disableNetwork
-        self.stopBefore = "stopBefore"
+        self._accessKeyId = accessKeyId
+        self._accessKey = accessKey
+        self._disableNetwork = disableNetwork
+        self._stopBefore = "stopBefore"
 
     def __repr__(self):
         self.syncRemote()
@@ -137,6 +137,72 @@ class TangoJob(object):
     def retries(self):
         self.syncRemote()
         return self._retries
+
+    @property
+    def vm(self):
+        self.syncRemote()
+        return self._vm
+    
+    @property
+    def input(self):
+        self.syncRemote()
+        return self._input
+    
+    @property
+    def outputFile(self):
+        self.syncRemote()
+        return self._outputFile
+    
+    @property
+    def name(self):
+        self.syncRemote()
+        return self._name
+    
+    @property
+    def notifyURL(self):
+        self.syncRemote()
+        return self._notifyURL
+    
+    @property
+    def timeout(self):
+        self.syncRemote()
+        return self._timeout
+    
+    @property
+    def trace(self):
+        self.syncRemote()
+        return self._trace
+    
+    @property
+    def maxOutputFileSize(self):
+        self.syncRemote()
+        return self._maxOutputFileSize
+    
+    @property
+    def remoteLocation(self):
+        self.syncRemote()
+        return self._remoteLocation
+    
+    @property
+    def accessKeyId(self):
+        self.syncRemote()
+        return self._accessKeyId
+    
+    @property
+    def accessKey(self):
+        self.syncRemote()
+        return self._accessKey
+    
+    @property
+    def disableNetwork(self):
+        self.syncRemote()
+        return self._disableNetwork
+    
+    @property
+    def stopBefore(self):
+        self.syncRemote()
+        return self._stopBefore
+    
 
     def makeAssigned(self):
         self.syncRemote()
@@ -155,7 +221,7 @@ class TangoJob(object):
 
     def makeVM(self, vm):
         self.syncRemote()
-        self.vm = vm
+        self._vm = vm
         self.updateRemote()
 
     def makeUnassigned(self):
@@ -169,7 +235,7 @@ class TangoJob(object):
 
     def appendTrace(self, trace_str):
         self.syncRemote()
-        self.trace.append(trace_str)
+        self._trace.append(trace_str)
         self.updateRemote()
 
     def setId(self, new_id):
@@ -181,19 +247,24 @@ class TangoJob(object):
             dictionary.delete(key)
             self._remoteLocation = dict_hash + ":" + str(new_id)
             self.updateRemote()
+            
+    def setTimeout(self, new_timeout):
+        self.syncRemote()
+        self._timeout = new_timeout
+        self.updateRemote()
 
     # Private method
     def __updateSelf(self, other_job):
         self._assigned = other_job._assigned
         self._retries = other_job._retries
-        self.vm = other_job.vm
-        self.input = other_job.input
-        self.outputFile = other_job.outputFile
-        self.name = other_job.name
-        self.notifyURL = other_job.notifyURL
-        self.timeout = other_job.timeout
-        self.trace = other_job.trace
-        self.maxOutputFileSize = other_job.maxOutputFileSize
+        self._vm = other_job._vm
+        self._input = other_job._input
+        self._outputFile = other_job._outputFile
+        self._name = other_job._name
+        self._notifyURL = other_job._notifyURL
+        self._timeout = other_job._timeout
+        self._trace = other_job._trace
+        self._maxOutputFileSize = other_job._maxOutputFileSize
 
 
     def syncRemote(self):

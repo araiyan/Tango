@@ -399,7 +399,7 @@ class TangoServer(object):
                 "validateJob: Setting job.timeout to" " default config value: %d secs",
                 Config.RUNJOB_TIMEOUT,
             )
-            job.timeout = Config.RUNJOB_TIMEOUT
+            job.setTimeout(Config.RUNJOB_TIMEOUT)
 
         # Any problems, return an error status
         if errors > 0:
