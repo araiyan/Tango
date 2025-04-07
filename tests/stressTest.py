@@ -4,7 +4,6 @@ import time
 import os
 import sys
 
-import asyncio
 import tornado.web
 
 import yaml
@@ -76,13 +75,17 @@ class AutogradeDoneHandler(tornado.web.RequestHandler):
             f.write(fileBody)
         finished_tests[str(id)] = scoreJson
         printProgressBar(len(finished_tests), sub_num, prefix = 'Tests Done:', suffix = 'Complete', length = 50)
+        self.write("ok")
+        self.flush()
+
+    def on_finish(self):
+        global finished_tests, sub_num, shutdown_event
         if len(finished_tests) == sub_num:
-            self.write("ok")
-            print()
+            print("\nAll tests completed. Generating summary...")
             create_summary()
             print("Test Summary in summary.txt")
-            sys.exit()
-        self.write("ok")
+            print("\nShutting down server...")
+            tornado.ioloop.IOLoop.current().stop()
 
 def create_summary():
     success = []
@@ -101,20 +104,20 @@ def create_summary():
         f.write(expected_output)
         f.write("\n\n===========================================================\n")
         f.write("Failed Cases:\n")
-        for i in range(1, len(failed)):
-            f.write("Test Case #%d: %s\n" % (i, finished_tests[str(i)]))
+        for i in range(0, len(failed)):
+            f.write("Test Case #%d: %s\n" % (failed[i], finished_tests[str(failed[i])]))
 
 def make_app():
     return tornado.web.Application([
         (r"/autograde_done", AutogradeDoneHandler),
     ])
 
-async def notifyServer():
+def notifyServer():
+    global shutdown_event
     app = make_app()
     app.listen(8888)
     printProgressBar(0, sub_num, prefix = 'Tests Done:', suffix = 'Complete', length = 50)
-    shutdown_event = asyncio.Event()
-    await shutdown_event.wait()
+    tornado.ioloop.IOLoop.current().start()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Stress test script for Tango")
@@ -155,4 +158,4 @@ if __name__ == "__main__":
         data["ec2"]
     )
 
-    asyncio.run(notifyServer())
+    notifyServer()
