@@ -6,6 +6,7 @@
 scripts/*.sh
 # exclude
 vmms/id_rsa*
+vmms/id_ed25519*
 courselabs/*
 dockerTmp/*
 
