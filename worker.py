@@ -90,7 +90,7 @@ class Worker(threading.Thread):
 
             self.appendMsg(
                 hdrfile,
-                "Internal error: Unable to complete job after %d tries. Pleae resubmit"
+                "Internal error: Unable to complete job after %d tries. Please resubmit"
                 % (Config.JOB_RETRIES),
             )
             self.appendMsg(
@@ -255,28 +255,44 @@ class Worker(threading.Thread):
                 )
             )
             self.log.debug("Waiting for VM")
-            if self.job.stopBefore == "waitvm":
-                msg = "Execution stopped before %s" % self.job.stopBefore
-                returnVM = True
-                self.afterJobExecution(hdrfile, msg, returnVM, False)
-                return
+            t0 = time.monotonic()
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
-
-            self.log.debug("Waited for VM")
+            waited = time.monotonic() - t0
+            self.log.debug(
+                "waitVM returned %s after %.1fs for %s",
+                ret["waitvm"],
+                waited,
+                self.vmms.instanceName(vm.id, vm.name),
+            )
 
             # If the instance did not become ready in a reasonable
             # amount of time, then reschedule the job, detach the VM,
             # and exit worker
             if ret["waitvm"] == -1:
                 Config.waitvm_timeouts += 1
+
+                # Try to capture quick diagnostics before reschedule (best-effort)
+                try:
+                    describe = getattr(self.vmms, "describeVM", None)
+                    if callable(describe):
+                        info = describe(vm)
+                        self.appendMsg(hdrfile, "VM diagnostics: %s" % (info,))
+                except Exception as e:
+                    self.log.debug("diagnostics failed: %s", str(e))
+
+                # Keep the VM for debugging
+                try:
+                    self.job.vm.keep_for_debugging = True
+                    self.job.vm.notes = str(self.job.id) + "_" + self.job.name + "_waitvm_timeout"
+                except Exception:
+                    pass
+
                 self.rescheduleJob(
                     hdrfile,
                     ret,
                     "Internal error: waitVM timeout after %d secs"
                     % Config.WAITVM_TIMEOUT,
                 )
-
-                # Thread Exit after waitVM timeout
                 return
 
             self.log.info(
