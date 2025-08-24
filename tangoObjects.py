@@ -472,6 +472,11 @@ class TangoRemoteDictionary(object):
         else:
             return None
 
+    def getExn(self, id):
+        job = self.get(id)
+        assert job is not None, f"ID {id} does not exist in this remote dictionary"
+        return job
+
     def keys(self):
         keys = map(lambda key: key.decode(), self.r.hkeys(self.hash_name))
         return list(keys)
@@ -518,6 +523,11 @@ class TangoNativeDictionary(object):
             return self.dict[str(id)]
         else:
             return None
+
+    def getExn(self, id):
+        job = self.get(id)
+        assert job is not None, f"ID {id} does not exist in this native dictionary"
+        return job
 
     def keys(self):
         return list(self.dict.keys())

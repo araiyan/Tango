@@ -28,7 +28,7 @@ from jobQueue import JobQueue
 class JobManager(object):
     def __init__(self, queue):
         self.daemon = True
-        self.jobQueue = queue
+        self.jobQueue: JobQueue = queue
         self.preallocator = self.jobQueue.preallocator
         self.vmms = self.preallocator.vmms
         self.log = logging.getLogger("JobManager")
@@ -124,7 +124,7 @@ class JobManager(object):
                     self.log.info("job_manager: job is None")
                 else:
                     self.log.error("job failed during creation %d %s" % (job.id, str(err)))
-                    self.jobQueue.makeDead(job.id, str(err))
+                    self.jobQueue.makeDead(job, str(err))
 
 
 if __name__ == "__main__":

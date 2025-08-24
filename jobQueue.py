@@ -209,6 +209,7 @@ class JobQueue(object):
         """
         status = -1
         if deadjob == 0:
+            temp_job = self.liveJobs.getExn(id)
             try:
                 # Remove the job from the unassigned live jobs queue, if it
                 # is yet to be assigned.
@@ -218,7 +219,7 @@ class JobQueue(object):
                 self.log.info("delJob | Job ID %s was already assigned" % (id))
                 return status
 
-            return self.makeDead(id, "Requested by operator")
+            return self.makeDead(temp_job, "Requested by operator")
         else:
             self.queueLock.acquire()
             self.log.debug("delJob| Acquired lock to job queue.")
@@ -297,6 +298,7 @@ class JobQueue(object):
         self.queueLock.release()
         self.log.debug("unassignJob| Released lock to job queue.")
 
+    # Takes in a job in order to switch its remote location, in which you can't rely on syncing
     def makeDead(self, job: TangoJob, reason):
         """makeDead - move a job from live queue to dead queue"""
         self.log.info("makeDead| Making dead job ID: " + str(job.id))
