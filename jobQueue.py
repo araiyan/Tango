@@ -145,7 +145,7 @@ class JobQueue(object):
         self.log.debug("add| Acquired lock to job queue.")
 
         # Adds the job to the live jobs dictionary
-        self.liveJobs.set(job.id, job)
+        job.addToDict(self.liveJobs)
         # Add this to the unassigned job queue too
         self.unassignedJobs.put(int(job.id))
 
@@ -194,7 +194,7 @@ class JobQueue(object):
         self.log.debug("addDead|Acquired lock to job queue.")
 
         # We add the job into the dead jobs dictionary
-        self.deadJobs.set(job.id, job)
+        job.addToDict(self.deadJobs)
         self.queueLock.release()
         self.log.debug("addDead|Released lock to job queue.")
 
@@ -312,15 +312,10 @@ class JobQueue(object):
         status = 0
         self.log.info("Terminated job %s:%s: %s" % (job.name, job.id, reason))
         
-        print(f"Anthony: {job.id} has remote location {job._remoteLocation} before swapping")
-
-        # Add the job to the dead jobs dictionary
-        self.deadJobs.set(job.id, job)
         # Remove the job from the live jobs dictionary
-        self.liveJobs.delete(job.id)
-
-        print(f"Anthony: {job.id} has remote location {job._remoteLocation} after swapping")
-        print(f"Anthony: {job.id} has remote location {job._remoteLocation} after syncing")
+        job.deleteFromDict(self.liveJobs)
+        # Add the job to the dead jobs dictionary
+        job.addToDict(self.deadJobs)
 
         # unassign, remove from unassigned jobs queue
         job.makeUnassigned()

@@ -1,3 +1,4 @@
+from __future__ import annotations
 # tangoREST.py
 #
 # Implements objects used to pass state within Tango.
@@ -284,6 +285,18 @@ class TangoJob(object):
             key = self._remoteLocation.split(":")[1]
             dictionary = TangoDictionary(dict_hash)
             dictionary.set(key, self)
+            
+    def deleteFromDict(self, dictionary : TangoDictionary) -> None:
+        dictionary.delete(self.id)
+        self._remoteLocation = None
+        
+    def addToDict(self, dictionary : TangoDictionary) -> None:
+        dictionary.set(self.id, self)
+        assert self._remoteLocation is None, "Job already has a remote location"
+        if Config.USE_REDIS:
+            self._remoteLocation = dictionary.hash_name + ":" + str(self.id)
+            self.updateRemote()
+        
 
 
 def TangoIntValue(object_name, obj):
@@ -448,9 +461,6 @@ class TangoRemoteDictionary(object):
     def set(self, id, obj):
         pickled_obj = pickle.dumps(obj)
 
-        if hasattr(obj, "_remoteLocation"):
-            obj._remoteLocation = self.hash_name + ":" + str(id) # TODO: don't violate the encapsulation of TangoJob
-
         self.r.hset(self.hash_name, str(id), pickled_obj)
         return str(id)
 
@@ -474,7 +484,6 @@ class TangoRemoteDictionary(object):
         return valslist
 
     def delete(self, id):
-        self._remoteLocation = None
         self.r.hdel(self.hash_name, id)
 
     def _clean(self):
