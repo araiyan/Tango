@@ -13,7 +13,7 @@ import shutil
 
 from datetime import datetime
 from config import Config
-
+from jobQueue import JobQueue
 #
 # Worker - The worker class is very simple and very dumb. The goal is
 # to walk through the VMMS interface, track the job's progress, and if
@@ -32,7 +32,7 @@ class Worker(threading.Thread):
         self.daemon = True
         self.job = job
         self.vmms = vmms
-        self.jobQueue = jobQueue
+        self.jobQueue : JobQueue = jobQueue
         self.preallocator = preallocator
         self.preVM = preVM
         threading.Thread.__init__(self)
@@ -64,6 +64,7 @@ class Worker(threading.Thread):
             # pool is empty and creates a spurious vm.
             self.preallocator.removeVM(self.job.vm)
 
+    # TODO: figure out what hdrfile, ret and err are
     def rescheduleJob(self, hdrfile, ret, err):
         """rescheduleJob - Reschedule a job that has failed because
         of a system error, such as a VM timing out or a connection
@@ -96,7 +97,7 @@ class Worker(threading.Thread):
                 "%s|Giving up on job %s:%d"
                 % (datetime.now().ctime(), self.job.name, self.job.id)
             )
-            self.jobQueue.makeDead(self.job.id, err) # Note: this reports the error that caused the last call to rescheduleJob to fail
+            self.jobQueue.makeDead(self.job, err) # Note: this reports the error that caused the last call to rescheduleJob to fail
 
             self.appendMsg(
                 hdrfile,
@@ -165,13 +166,13 @@ class Worker(threading.Thread):
             self.log.debug("Error in notifyServer: %s" % str(e))
 
     def afterJobExecution(self, hdrfile, msg, returnVM, killVM=True):
-        self.jobQueue.makeDead(self.job.id, msg)
-
+        self.jobQueue.makeDead(self.job, msg)
+        
         # Update the text that users see in the autodriver output file
         self.appendMsg(hdrfile, msg)
         self.catFiles(hdrfile, self.job.outputFile)
         os.chmod(self.job.outputFile, 0o644)
-
+        
         # Thread exit after termination
         if killVM:
             self.detachVM(return_vm=returnVM)

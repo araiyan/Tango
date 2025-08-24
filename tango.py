@@ -278,6 +278,7 @@ class TangoServer(object):
             self.log.error("resetTango: Call to VMMS %s failed: %s" % (vmms_name, err))
             os._exit(1)
 
+    # Returns 0 if the job is valid, -1 if the job is invalid
     def __validateJob(self, job, vmms):
         """validateJob - validate the input arguments in an addJob request."""
         errors = 0

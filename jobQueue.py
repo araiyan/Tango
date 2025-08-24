@@ -136,7 +136,7 @@ class JobQueue(object):
 
         # Since we assume that the job is new, we set the number of retries
         # of this job to 0
-        job.retries = 0
+        assert(job.retries == 0)
 
         # Add the job to the queue. Careful not to append the trace until we
         # know the job has actually been added to the queue.
@@ -297,28 +297,36 @@ class JobQueue(object):
         self.queueLock.release()
         self.log.debug("unassignJob| Released lock to job queue.")
 
-    def makeDead(self, id, reason):
+    def makeDead(self, job: TangoJob, reason):
         """makeDead - move a job from live queue to dead queue"""
-        self.log.info("makeDead| Making dead job ID: " + str(id))
+        self.log.info("makeDead| Making dead job ID: " + str(job.id))
         self.queueLock.acquire()
         self.log.debug("makeDead| Acquired lock to job queue.")
         status = -1
         # Check to make sure that the job is in the live jobs queue
-        if id in self.liveJobs:
-            self.log.info("makeDead| Found job ID: %s in the live queue" % (id))
-            status = 0
-            job = self.liveJobs.get(id)
-            self.log.info("Terminated job %s:%s: %s" % (job.name, job.id, reason))
-            # Add the job to the dead jobs dictionary
-            self.deadJobs.set(id, job)
-            # Remove the job from the live jobs dictionary
-            self.liveJobs.delete(id)
+        if job.id not in self.liveJobs:
+            self.log.error("makeDead| Job ID: %s not found in live jobs" % (job.id))
+            return -1
+        
+        self.log.info("makeDead| Found job ID: %s in the live queue" % (job.id))
+        status = 0
+        self.log.info("Terminated job %s:%s: %s" % (job.name, job.id, reason))
+        
+        print(f"Anthony: {job.id} has remote location {job._remoteLocation} before swapping")
 
-            # unassign, remove from unassigned jobs queue
-            job.makeUnassigned()
-            self.unassignedJobs.remove(int(id))
+        # Add the job to the dead jobs dictionary
+        self.deadJobs.set(job.id, job)
+        # Remove the job from the live jobs dictionary
+        self.liveJobs.delete(job.id)
 
-            job.appendTrace("%s|%s" % (datetime.utcnow().ctime(), reason))
+        print(f"Anthony: {job.id} has remote location {job._remoteLocation} after swapping")
+        print(f"Anthony: {job.id} has remote location {job._remoteLocation} after syncing")
+
+        # unassign, remove from unassigned jobs queue
+        job.makeUnassigned()
+        self.unassignedJobs.remove(int(job.id))
+
+        job.appendTrace("%s|%s" % (datetime.utcnow().ctime(), reason))
         self.queueLock.release()
         self.log.debug("makeDead| Released lock to job queue.")
         return status

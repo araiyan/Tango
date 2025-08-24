@@ -272,7 +272,10 @@ class TangoJob(object):
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
             dictionary = TangoDictionary(dict_hash)
-            temp_job = dictionary.get(key)
+            temp_job = dictionary.get(key) # Key should be in dictionary
+            if temp_job is None:
+                print(f"Job {key} not found in dictionary {dict_hash}") # TODO: add better error handling for TangoJob
+                return
             self.__updateSelf(temp_job)
 
     def updateRemote(self):
@@ -446,7 +449,7 @@ class TangoRemoteDictionary(object):
         pickled_obj = pickle.dumps(obj)
 
         if hasattr(obj, "_remoteLocation"):
-            obj._remoteLocation = self.hash_name + ":" + str(id)
+            obj._remoteLocation = self.hash_name + ":" + str(id) # TODO: don't violate the encapsulation of TangoJob
 
         self.r.hset(self.hash_name, str(id), pickled_obj)
         return str(id)
