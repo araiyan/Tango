@@ -6,10 +6,10 @@
 scripts/*.sh
 # exclude
 vmms/id_rsa*
+vmms/id_ed25519*
 courselabs/*
 dockerTmp/*
-id_ed25519
-id_ed25519.pub
+
 # config
 config.py
 
@@ -30,9 +30,9 @@ pip-selfcheck.json
 # Backup files
 *.bak
 
+# Redis
+*.rdb
+
 # Tests
-tests/my_tests/*
-tests/sample_test/output
-tests/sample_test/output/*
-tests/sample_test/log.txt
-tests/sample_test/summary.txt
+tests/*
+!tests/*.py

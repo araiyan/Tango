@@ -8,3 +8,4 @@ instance_type: t2.micro
 timeout: 180
 ec2: True
 expected_output: expected_output.txt
+stop_before:
