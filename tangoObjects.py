@@ -7,6 +7,7 @@ from config import Config
 from queue import Queue
 import pickle
 import redis
+from typing import Optional
 
 redisConnection = None
 
@@ -91,7 +92,7 @@ class TangoJob(object):
 
     def __init__(
         self,
-        vm=None,
+        vm: Optional[TangoMachine] = None,
         outputFile=None,
         name=None,
         input=None,

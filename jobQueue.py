@@ -246,6 +246,8 @@ class JobQueue(object):
         self.log.debug("get| Released lock to job queue.")
         return job
 
+    # TODO: this function is a little weird. It sets the state of job to be "assigned", but not to which worker. 
+    # TODO: It does assign the job to a particular VM though.
     def assignJob(self, jobId, vm=None):
         """assignJob - marks a job to be assigned"""
         self.queueLock.acquire()
@@ -389,3 +391,5 @@ class JobQueue(object):
                 return job.vm
             else:
                 raise Exception("Job assigned without vm")
+
+

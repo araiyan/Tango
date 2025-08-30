@@ -131,7 +131,7 @@ parser.add_argument(
 parser.add_argument("--accessKeyId", default="", help="AWS account access key ID")
 parser.add_argument("--accessKey", default="", help="AWS account access key content")
 parser.add_argument("--instanceType", default="", help="AWS EC2 instance type")
-parser.add_argument("--ec2", action="store_true", help="Enable ec2SSH VMMS")
+parser.add_argument("--ec2", action="store_true", help="Enable ec2SSH VMMS") # TODO: shouldn't this be taken from config.py?
 parser.add_argument("--stopBefore", default="", help="Stops the worker before a function is executed")
 
 def checkKey():

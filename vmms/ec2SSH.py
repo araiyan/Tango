@@ -162,6 +162,7 @@ class Ec2SSH(object):
         """Releases the VM sempahore"""
         Ec2SSH._vm_semaphore.release()
 
+    # TODO: the arguments accessKeyId and accessKey don't do anything
     def __init__(self, accessKeyId=None, accessKey=None):
         """log - logger for the instance
         connection - EC2Connection object that stores the connection

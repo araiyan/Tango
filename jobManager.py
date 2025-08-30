@@ -19,8 +19,10 @@ from datetime import datetime
 
 import tango  # Written this way to avoid circular imports
 from config import Config
+from jobQueue import JobQueue
 from tangoObjects import TangoQueue
 from worker import Worker
+
 
 
 class JobManager(object):
@@ -63,6 +65,7 @@ class JobManager(object):
             # Blocks until we get a next job
             job = self.jobQueue.getNextPendingJob()
             if not job.accessKey and Config.REUSE_VMS:
+                self.log.info(f"job has access key {job.accessKey} and is calling reuseVM")
                 vm = None
                 while vm is None:
                     vm = self.jobQueue.reuseVM(job)
@@ -89,6 +92,7 @@ class JobManager(object):
                             "EC2 SSH VM initialization failed: see log"
                         )
                 else:
+                    self.log.info(f"job {job.id} is not an ec2 vmms job")
                     # Try to find a vm on the free list and allocate it to
                     # the worker if successful.
                     if Config.REUSE_VMS:
