@@ -75,8 +75,8 @@ class TangoServer(object):
 
             vmms = DistDocker()
 
-        self.preallocator = Preallocator({Config.VMMS_NAME: vmms})
-        self.jobQueue = JobQueue(self.preallocator)
+        self.preallocator: Preallocator = Preallocator({Config.VMMS_NAME: vmms})
+        self.jobQueue: JobQueue = JobQueue(self.preallocator)
         if not Config.USE_REDIS:
             # creates a local Job Manager if there is no persistent
             # memory between processes. Otherwise, JobManager will
@@ -89,7 +89,7 @@ class TangoServer(object):
             level=Config.LOGLEVEL,
         )
         self.start_time = time.time()
-        self.log = logging.getLogger("TangoServer")
+        self.log: logging.Logger = logging.getLogger("TangoServer")
         self.log.info("Starting Tango server")
 
     def addJob(self, job):

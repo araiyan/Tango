@@ -117,7 +117,7 @@ class LocalDocker(object):
     #
     def initializeVM(self, vm):
         """initializeVM -  Nothing to do for initializeVM"""
-        return vm
+        return 0
 
     def waitVM(self, vm, max_secs):
         """waitVM - Nothing to do for waitVM"""

@@ -22,7 +22,9 @@ from botocore.exceptions import ClientError
 
 import config
 from tangoObjects import TangoMachine
-from typing import Optional
+from typing import Optional, Literal, List
+from mypy_boto3_ec2 import EC2ServiceResource
+from mypy_boto3_ec2.service_resource import Instance
 
 # suppress most boto logging
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
@@ -193,7 +195,7 @@ class Ec2SSH(object):
         self.img2ami = {}
         self.images = []
         try:
-            self.boto3resource: boto3.EC2.ServiceResource = boto3.resource("ec2", config.Config.EC2_REGION)
+            self.boto3resource: EC2ServiceResource = boto3.resource("ec2", config.Config.EC2_REGION)
             self.boto3client = boto3.client("ec2", config.Config.EC2_REGION)
 
             # Get images from ec2
@@ -276,26 +278,26 @@ class Ec2SSH(object):
     def createKeyPair(self):
         # TODO: SUPPORT
         raise
-        # try to delete the key to avoid collision
-        self.key_pair_path = "%s/%s.pem" % (
-            config.Config.DYNAMIC_SECURITY_KEY_PATH,
-            self.key_pair_name,
-        )
-        self.deleteKeyPair()
-        key = self.connection.create_key_pair(self.key_pair_name)
-        key.save(config.Config.DYNAMIC_SECURITY_KEY_PATH)
-        # change the SSH_FLAG accordingly
-        self.ssh_flags[1] = self.key_pair_path
+        # # try to delete the key to avoid collision
+        # self.key_pair_path: str = "%s/%s.pem" % (
+        #     config.Config.DYNAMIC_SECURITY_KEY_PATH,
+        #     self.key_pair_name,
+        # )
+        # self.deleteKeyPair()
+        # key = self.connection.create_key_pair(self.key_pair_name)
+        # key.save(config.Config.DYNAMIC_SECURITY_KEY_PATH)
+        # # change the SSH_FLAG accordingly
+        # self.ssh_flags[1] = self.key_pair_path
 
     def deleteKeyPair(self):
         # TODO: SUPPORT
         raise
-        self.boto3client.delete_key_pair(self.key_pair_name)
-        # try to delete may not exist key file
-        try:
-            os.remove(self.key_pair_path)
-        except OSError:
-            pass
+        # self.boto3client.delete_key_pair(self.key_pair_name)
+        # # try to delete may not exist key file
+        # try:
+        #     os.remove(self.key_pair_path)
+        # except OSError:
+        #     pass
 
     def createSecurityGroup(self):
         try:
@@ -329,7 +331,7 @@ class Ec2SSH(object):
     #
     # VMMS API functions
     #
-    def initializeVM(self, vm: TangoMachine) -> Optional[TangoMachine]:
+    def initializeVM(self, vm: TangoMachine) -> Literal[0, -1]:
         """initializeVM - Tell EC2 to create a new VM instance.
 
         Returns a boto.ec2.instance.Instance object.
@@ -343,8 +345,8 @@ class Ec2SSH(object):
             # ensure that security group exists
             self.createSecurityGroup()
             if self.useDefaultKeyPair:
-                self.key_pair_name = config.Config.SECURITY_KEY_NAME
-                self.key_pair_path = config.Config.SECURITY_KEY_PATH
+                self.key_pair_name: str = config.Config.SECURITY_KEY_NAME
+                self.key_pair_path: str = config.Config.SECURITY_KEY_PATH
             else:
                 # TODO: SUPPORT
                 raise
@@ -358,7 +360,7 @@ class Ec2SSH(object):
                     "InstanceInterruptionBehavior": "terminate"
                 }
             }
-            reservation: list[boto3.ec2.Instance] = self.boto3resource.create_instances(
+            reservation: List[Instance] = self.boto3resource.create_instances(
                 ImageId=ec2instance["ami"],
                 KeyName=self.key_pair_name,
                 SecurityGroups=[config.Config.DEFAULT_SECURITY_GROUP],
@@ -440,7 +442,7 @@ class Ec2SSH(object):
             vm.domain_name = newInstance.public_ip_address
             vm.instance_id = newInstance.id
             self.log.debug("VM %s: %s" % (instanceName, newInstance))
-            return vm
+            return 0
 
         except Exception as e:
             self.log.debug("initializeVM Failed: %s" % e)
@@ -455,10 +457,10 @@ class Ec2SSH(object):
                     self.log.error(
                         "Exception handling failed for %s: %s" % (vm.name, e)
                     )
-                    return None
-            return None
+                    return -1
+            return -1
 
-    def waitVM(self, vm, max_secs) -> 0 | -1:
+    def waitVM(self, vm, max_secs) -> Literal[0, -1]:
         """waitVM - Wait at most max_secs for a VM to become
         ready. Return error if it takes too long.
 

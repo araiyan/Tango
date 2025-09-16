@@ -26,7 +26,7 @@ from worker import Worker
 
 
 class JobManager(object):
-    def __init__(self, queue):
+    def __init__(self, queue: JobQueue):
         self.daemon = True
         self.jobQueue: JobQueue = queue
         self.preallocator = self.jobQueue.preallocator
@@ -36,7 +36,7 @@ class JobManager(object):
         self.nextId = 10000
         self.running = False
 
-    def start(self):
+    def start(self) -> None:
         if self.running:
             return
         thread = threading.Thread(target=self.__manage)
@@ -59,7 +59,7 @@ class JobManager(object):
             self.nextId = 10000
         return id
 
-    def __manage(self):
+    def __manage(self) -> None:
         self.running = True
         while True:
             # Blocks until we get a next job
@@ -83,7 +83,8 @@ class JobManager(object):
                     newVM = copy.deepcopy(job.vm)
                     newVM.id = self._getNextID()
                     try:
-                        preVM = vmms.initializeVM(newVM)
+                        vmms.initializeVM(newVM)
+                        preVM = newVM
                     except Exception as e:
                         self.log.error("ERROR initialization VM: %s", e)
                         self.log.error(traceback.format_exc())
@@ -138,19 +139,19 @@ if __name__ == "__main__":
          JobManager"
         )
     else:
-        tango = tango.TangoServer()
-        tango.log.debug("Resetting Tango VMs")
-        tango.resetTango(tango.preallocator.vmms)
-        for key in tango.preallocator.machines.keys():
-            tango.preallocator.machines.set(key, [[], TangoQueue(key)])
+        tango_server = tango.TangoServer()
+        tango_server.log.debug("Resetting Tango VMs")
+        tango_server.resetTango(tango_server.preallocator.vmms)
+        for key in tango_server.preallocator.machines.keys():
+            tango_server.preallocator.machines.set(key, [[], TangoQueue(key)])
 
             # The above call sets the total pool empty.  But the free pool which
             # is a queue in redis, may not be empty.  When the job manager restarts,
             # resetting the free queue using the key doesn't change its content.
             # Therefore we empty the queue, thus the free pool, to keep it consistent
             # with the total pool.
-            tango.preallocator.machines.get(key)[1].make_empty()
-        jobs = JobManager(tango.jobQueue)
+            tango_server.preallocator.machines.get(key)[1].make_empty()
+        jobs = JobManager(tango_server.jobQueue)
 
         print("Starting the stand-alone Tango JobManager")
         jobs.run()

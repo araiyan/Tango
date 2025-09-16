@@ -7,7 +7,8 @@ from config import Config
 from queue import Queue
 import pickle
 import redis
-from typing import Optional
+from typing import Optional, Protocol, TypeVar
+from abc import abstractmethod
 
 redisConnection = None
 
@@ -117,9 +118,9 @@ class TangoJob(object):
         self._name = name
         self._notifyURL = notifyURL
         self._timeout = timeout # How long to run the autodriver on the job for before timing out.
-        self._trace = []
+        self._trace: list[str] = []
         self._maxOutputFileSize = maxOutputFileSize
-        self._remoteLocation = None
+        self._remoteLocation: Optional[str] = None
         self._accessKeyId = accessKeyId
         self._accessKey = accessKey
         self._disableNetwork = disableNetwork
@@ -245,7 +246,7 @@ class TangoJob(object):
         if self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
-            dictionary = TangoDictionary(dict_hash)
+            dictionary = TangoDictionary.create(dict_hash)
             dictionary.delete(key)
             self._remoteLocation = dict_hash + ":" + str(new_id)
             self.updateRemote()
@@ -438,23 +439,72 @@ class TangoRemoteQueue(object):
             if item is None:
                 break
 
+T = TypeVar('T')
+class TangoDictionary(Protocol[T]):
+
+    @staticmethod
+    def create(dictionary_name: str) -> TangoDictionary[T]:
+        if Config.USE_REDIS:
+            return TangoRemoteDictionary(dictionary_name)
+        else:
+            return TangoNativeDictionary()
+        
+    @property
+    @abstractmethod
+    def hash_name(self) -> str:
+        ...
+        
+    @abstractmethod
+    def __contains__(self, id: str) -> bool:
+        ...
+    @abstractmethod
+    def set(self, id: str, obj: T) -> str:
+        ...
+    @abstractmethod
+    def get(self, id: str) -> Optional[T]:
+        ...
+    @abstractmethod
+    def getExn(self, id: str) -> T:
+        ...
+    @abstractmethod
+    def keys(self) -> list[str]:
+        ...
+    @abstractmethod
+    def values(self) -> list[T]:
+        ...
+    @abstractmethod
+    def delete(self, id: str) -> None:
+        ...
+    @abstractmethod
+    def _clean(self) -> None:
+        ...
+    @abstractmethod
+    def items(self) -> list[tuple[str, T]]:
+        ...
+
 
 # This is an abstract class that decides on
 # if we should initiate a TangoRemoteDictionary or TangoNativeDictionary
 # Since there are no abstract classes in Python, we use a simple method
 
 
-def TangoDictionary(object_name):
-    if Config.USE_REDIS:
-        return TangoRemoteDictionary(object_name)
-    else:
-        return TangoNativeDictionary()
+# def TangoDictionary(object_name):
+#     if Config.USE_REDIS:
+#         return TangoRemoteDictionary(object_name)
+#     else:
+#         return TangoNativeDictionary()
 
 
-class TangoRemoteDictionary(object):
+
+
+class TangoRemoteDictionary(TangoDictionary[T]):
     def __init__(self, object_name):
         self.r = getRedisConnection()
-        self.hash_name = object_name
+        self._hash_name = object_name
+
+    @property
+    def hash_name(self) -> str:
+        return self._hash_name
 
     def __contains__(self, id):
         return self.r.hexists(self.hash_name, str(id))
@@ -506,9 +556,13 @@ class TangoRemoteDictionary(object):
         )
 
 
-class TangoNativeDictionary(object):
+class TangoNativeDictionary(TangoDictionary[T]):
     def __init__(self):
         self.dict = {}
+
+    @property
+    def hash_name(self) -> str:
+        raise ValueError("TangoNativeDictionary does not have a hash name")
 
     def __repr__(self):
         return str(self.dict)

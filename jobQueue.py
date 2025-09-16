@@ -270,6 +270,7 @@ class JobQueue(object):
         self.log.debug("assignJob| Released lock to job queue.")
         # return job
 
+    # TODO: Rename this job to be more accurate in its description
     def unassignJob(self, jobId):
         """unassignJob - marks a job to be unassigned
         Note: We assume here that a job is to be rescheduled or
