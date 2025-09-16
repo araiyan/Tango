@@ -22,6 +22,7 @@ from botocore.exceptions import ClientError
 
 import config
 from tangoObjects import TangoMachine
+from typing import Optional
 
 # suppress most boto logging
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
@@ -192,7 +193,7 @@ class Ec2SSH(object):
         self.img2ami = {}
         self.images = []
         try:
-            self.boto3resource = boto3.resource("ec2", config.Config.EC2_REGION)
+            self.boto3resource: boto3.EC2.ServiceResource = boto3.resource("ec2", config.Config.EC2_REGION)
             self.boto3client = boto3.client("ec2", config.Config.EC2_REGION)
 
             # Get images from ec2
@@ -248,7 +249,7 @@ class Ec2SSH(object):
     # VMMS helper methods
     #
 
-    def tangoMachineToEC2Instance(self, vm: TangoMachine):
+    def tangoMachineToEC2Instance(self, vm: TangoMachine) -> dict:
         """tangoMachineToEC2Instance - returns an object with EC2 instance
         type and AMI. Only general-purpose instances are used. Defalt AMI
         is currently used.
@@ -328,7 +329,7 @@ class Ec2SSH(object):
     #
     # VMMS API functions
     #
-    def initializeVM(self, vm):
+    def initializeVM(self, vm: TangoMachine) -> Optional[TangoMachine]:
         """initializeVM - Tell EC2 to create a new VM instance.
 
         Returns a boto.ec2.instance.Instance object.
@@ -350,13 +351,21 @@ class Ec2SSH(object):
                 self.key_pair_name = self.keyPairName(vm.id, vm.name)
                 self.createKeyPair()
 
-            reservation = self.boto3resource.create_instances(
+            instance_market_options = {
+                "MarketType": "spot",
+                "SpotOptions": {
+                    "SpotInstanceType": "one-time",
+                    "InstanceInterruptionBehavior": "terminate"
+                }
+            }
+            reservation: list[boto3.ec2.Instance] = self.boto3resource.create_instances(
                 ImageId=ec2instance["ami"],
                 KeyName=self.key_pair_name,
                 SecurityGroups=[config.Config.DEFAULT_SECURITY_GROUP],
                 InstanceType=ec2instance["instance_type"],
                 MaxCount=1,
                 MinCount=1,
+                InstanceMarketOptions=instance_market_options,
             )
 
             # Sleep for a while to prevent random transient errors observed
@@ -365,8 +374,9 @@ class Ec2SSH(object):
 
             # reservation is a list of instances created. there is only
             # one instance created so get index 0.
-            newInstance = reservation[0]
+            newInstance: boto3.ec2.Instance = reservation[0]
             if not newInstance:
+                # TODO: when does this happen?
                 raise ValueError("Cannot find new instance for %s" % vm.name)
 
             # Wait for instance to reach 'running' state
@@ -436,7 +446,7 @@ class Ec2SSH(object):
             self.log.debug("initializeVM Failed: %s" % e)
 
             # if the new instance exists, terminate it
-            if newInstance:
+            if newInstance is not None:
                 try:
                     self.boto3resource.instances.filter(
                         InstanceIds=[newInstance.id]
@@ -448,7 +458,7 @@ class Ec2SSH(object):
                     return None
             return None
 
-    def waitVM(self, vm, max_secs):
+    def waitVM(self, vm, max_secs) -> 0 | -1:
         """waitVM - Wait at most max_secs for a VM to become
         ready. Return error if it takes too long.
 

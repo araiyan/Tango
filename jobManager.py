@@ -20,7 +20,7 @@ from datetime import datetime
 import tango  # Written this way to avoid circular imports
 from config import Config
 from jobQueue import JobQueue
-from tangoObjects import TangoQueue
+from tangoObjects import TangoJob, TangoQueue
 from worker import Worker
 
 
@@ -63,7 +63,7 @@ class JobManager(object):
         self.running = True
         while True:
             # Blocks until we get a next job
-            job = self.jobQueue.getNextPendingJob()
+            job: TangoJob = self.jobQueue.getNextPendingJob()
             if not job.accessKey and Config.REUSE_VMS:
                 self.log.info(f"job has access key {job.accessKey} and is calling reuseVM")
                 vm = None

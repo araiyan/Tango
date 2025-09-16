@@ -347,7 +347,7 @@ class JobQueue(object):
         self.deadJobs._clean()
         self.unassignedJobs._clean()
 
-    def getNextPendingJob(self):
+    def getNextPendingJob(self) -> TangoJob:
         """Gets the next unassigned live job. Note that this is a
         blocking function and we will block till there is an available
         job.

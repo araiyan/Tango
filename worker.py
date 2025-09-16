@@ -247,7 +247,7 @@ class Worker(threading.Thread):
                 )
 
                 # Host name returned from EC2 is stored in the vm object
-                self.vmms.initializeVM(self.job.vm)
+                self.vmms.initializeVM(self.job.vm) # TODO: This can return None if the step fails, check for that
                 self.log.debug("Asigned job to a new VM")
 
             vm = self.job.vm
@@ -322,6 +322,7 @@ class Worker(threading.Thread):
                 self.job.vm.notes = str(self.job.id) + "_" + self.job.name
                 self.job.vm.keep_for_debugging = True
                 self.afterJobExecution(hdrfile, msg, False)
+                # TODO: no reschedule?
                 return
 
             self.log.info(
