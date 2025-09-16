@@ -22,9 +22,10 @@ from botocore.exceptions import ClientError
 
 import config
 from tangoObjects import TangoMachine
-from typing import Optional, Literal, List
+from typing import Optional, Literal, List, Sequence
 from mypy_boto3_ec2 import EC2ServiceResource
 from mypy_boto3_ec2.service_resource import Instance
+from mypy_boto3_ec2.type_defs import FilterTypeDef
 
 # suppress most boto logging
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
@@ -189,7 +190,14 @@ class Ec2SSH(object):
         self.useDefaultKeyPair = True
 
         # key pair settings, for now, use default security key
-
+        if self.useDefaultKeyPair:
+            self.key_pair_name: str = config.Config.SECURITY_KEY_NAME
+            self.key_pair_path: str = config.Config.SECURITY_KEY_PATH
+        else:
+            # TODO: SUPPORT. Know that this if/else block used to be under initializeVM, using vm for a unique identifier
+            raise
+            # self.key_pair_name = self.keyPairName(vm.id, vm.name)
+            # self.createKeyPair()
         # create boto3resource
 
         self.img2ami = {}
@@ -336,7 +344,7 @@ class Ec2SSH(object):
 
         Returns a boto.ec2.instance.Instance object.
         """
-        newInstance = None
+        newInstance: Optional[Instance] = None
         # Create the instance and obtain the reservation
         try:
             instanceName = self.instanceName(vm.id, vm.name)
@@ -344,22 +352,8 @@ class Ec2SSH(object):
             self.log.debug("instanceName: %s" % instanceName)
             # ensure that security group exists
             self.createSecurityGroup()
-            if self.useDefaultKeyPair:
-                self.key_pair_name: str = config.Config.SECURITY_KEY_NAME
-                self.key_pair_path: str = config.Config.SECURITY_KEY_PATH
-            else:
-                # TODO: SUPPORT
-                raise
-                self.key_pair_name = self.keyPairName(vm.id, vm.name)
-                self.createKeyPair()
 
-            instance_market_options = {
-                "MarketType": "spot",
-                "SpotOptions": {
-                    "SpotInstanceType": "one-time",
-                    "InstanceInterruptionBehavior": "terminate"
-                }
-            }
+
             reservation: List[Instance] = self.boto3resource.create_instances(
                 ImageId=ec2instance["ami"],
                 KeyName=self.key_pair_name,
@@ -367,7 +361,14 @@ class Ec2SSH(object):
                 InstanceType=ec2instance["instance_type"],
                 MaxCount=1,
                 MinCount=1,
-                InstanceMarketOptions=instance_market_options,
+                InstanceMarketOptions=
+                        {
+                    "MarketType": "spot",
+                    "SpotOptions": {
+                        "SpotInstanceType": "one-time",
+                        "InstanceInterruptionBehavior": "terminate"
+                    }
+                },
             )
 
             # Sleep for a while to prevent random transient errors observed
@@ -376,7 +377,7 @@ class Ec2SSH(object):
 
             # reservation is a list of instances created. there is only
             # one instance created so get index 0.
-            newInstance: boto3.ec2.Instance = reservation[0]
+            newInstance = reservation[0]
             if not newInstance:
                 # TODO: when does this happen?
                 raise ValueError("Cannot find new instance for %s" % vm.name)
@@ -385,7 +386,7 @@ class Ec2SSH(object):
             start_time = time.time()
             while True:
 
-                filters = [
+                filters: Sequence[FilterTypeDef] = [
                     {"Name": "instance-state-name", "Values": ["running"]}
                 ]
                 instances = self.boto3resource.instances.filter(Filters=filters)
