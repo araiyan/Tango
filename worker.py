@@ -6,7 +6,7 @@ import time
 import logging
 import tempfile
 import requests
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 import os
 import shutil
@@ -41,6 +41,7 @@ class Worker(threading.Thread):
     #
     # Worker helper functions
     #
+    # TODO: These should not have default values in my opinion
     def detachVM(self, return_vm=False, replace_vm=False):
         """detachVM - Detach the VM from this worker. The options are
         to return it to the pool's free list (return_vm), destroy it
@@ -106,8 +107,8 @@ class Worker(threading.Thread):
             )
             self.appendMsg(
                 hdrfile,
-                "Job status: waitVM=%s copyIn=%s runJob=%s copyOut=%s"
-                % (ret["waitvm"], ret["copyin"], ret["runjob"], ret["copyout"]),
+                "Job status: waitVM=%s initializeVM=%s copyIn=%s runJob=%s copyOut=%s"
+                % (ret["waitvm"], ret["initializevm"], ret["copyin"], ret["runjob"], ret["copyout"]),
             )
 
             self.catFiles(hdrfile, self.job.outputFile)
@@ -165,7 +166,10 @@ class Worker(threading.Thread):
         except Exception as e:
             self.log.debug("Error in notifyServer: %s" % str(e))
 
-    def afterJobExecution(self, hdrfile, msg, returnVM, killVM=True):
+    def afterJobExecution(self, hdrfile, msg, returnVM, killVM=True): 
+        # TODO: I don't think killVM is a good variable name, it can refer to either returning or destroying the VM
+        # TODO: Also, what does it mean to not kill the VM? (i.e. not returning it)? It only gets called when we have a job.stopBefore.
+        # TODO: This directly contradicts the documentation of detachVM ("The worker must always call this function before returning.")
         self.jobQueue.makeDead(self.job, msg)
         
         # Update the text that users see in the autodriver output file
@@ -188,6 +192,7 @@ class Worker(threading.Thread):
             # Hash of return codes for each step
             ret = {}
             ret["waitvm"] = None
+            ret["initializevm"] = None
             ret["copyin"] = None
             ret["runjob"] = None
             ret["copyout"] = None
@@ -201,6 +206,7 @@ class Worker(threading.Thread):
 
             # Assigning job to a preallocated VM
             if self.preVM:  # self.preVM:
+                assert not Config.VMMS_NAME == "ec2ssh", "Unimplemented"
                 self.log.debug("Assigning job to preallocated VM")
                 self.job.makeVM(self.preVM)
                 self.log.info(
@@ -221,6 +227,7 @@ class Worker(threading.Thread):
                     )
                 )
                 self.log.debug("Assigned job to preallocated VM")
+                ret["initializevm"] = 0 # Vacuous success since it doesn't happen
             # Assigning job to a new VM
             else:
                 self.log.debug("Assigning job to a new VM")
@@ -247,7 +254,15 @@ class Worker(threading.Thread):
                 )
 
                 # Host name returned from EC2 is stored in the vm object
-                self.vmms.initializeVM(self.job.vm) # TODO: This can return None if the step fails, check for that
+                ret["initializevm"] = self.vmms.initializeVM(self.job.vm)
+                if ret["initializevm"] != 0:
+                    self.rescheduleJob(
+                        hdrfile,
+                        ret,
+                        "Internal error: initializeVM failed"
+                    )
+                    return
+                
                 self.log.debug("Asigned job to a new VM")
 
             vm = self.job.vm
@@ -321,8 +336,12 @@ class Worker(threading.Thread):
                 msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
                 self.job.vm.notes = str(self.job.id) + "_" + self.job.name
                 self.job.vm.keep_for_debugging = True
-                self.afterJobExecution(hdrfile, msg, False)
-                # TODO: no reschedule?
+                self.log.debug(msg)
+                self.rescheduleJob(
+                    hdrfile,
+                    ret,
+                    msg
+                )
                 return
 
             self.log.info(
@@ -350,6 +369,13 @@ class Worker(threading.Thread):
                 Config.runjob_errors += 1
                 if ret["runjob"] == -1:
                     Config.runjob_timeouts += 1
+                self.rescheduleJob(
+                    hdrfile,
+                    ret,
+                    "Internal error: runJob failed"
+                )
+                return
+            
             self.log.info(
                 "Job %s:%d executed [status=%s]"
                 % (self.job.name, self.job.id, ret["runjob"])
@@ -368,6 +394,13 @@ class Worker(threading.Thread):
             ret["copyout"] = self.vmms.copyOut(vm, self.job.outputFile)
             if ret["copyout"] != 0:
                 Config.copyout_errors += 1
+                self.rescheduleJob(
+                    hdrfile,
+                    ret,
+                    "Internal error: copyOut failed"
+                )
+                return
+            
             self.log.info(
                 "Output copied for job %s:%d [status=%d]"
                 % (self.job.name, self.job.id, ret["copyout"])
@@ -382,6 +415,10 @@ class Worker(threading.Thread):
             # normal termination and doesn't reschedule the job.
             self.log.info("Success: job %s:%d finished" % (self.job.name, self.job.id))
 
+            for status in ret.values():
+                assert status == 0, "Should not get to the success point if any stage failed"
+                # TODO: test this, then remove everything below this point
+                
             # Move the job from the live queue to the dead queue
             # with an explanatory message
             msg = "Success: Autodriver returned normally"

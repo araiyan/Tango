@@ -27,6 +27,9 @@ from mypy_boto3_ec2 import EC2ServiceResource
 from mypy_boto3_ec2.service_resource import Instance
 from mypy_boto3_ec2.type_defs import FilterTypeDef
 
+from vmms.interface import VMMSInterface
+
+
 # suppress most boto logging
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
@@ -143,7 +146,7 @@ class ec2CallError(Exception):
     pass
 
 
-class Ec2SSH(object):
+class Ec2SSH(VMMSInterface):
     _SSH_FLAGS = [
         "-i",
         config.Config.SECURITY_KEY_PATH,
@@ -200,10 +203,11 @@ class Ec2SSH(object):
             # self.createKeyPair()
         # create boto3resource
 
-        self.img2ami = {}
+        self.img2ami = {} # this is a bad name, should really be img_name to img
         self.images = []
         try:
-            self.boto3resource: EC2ServiceResource = boto3.resource("ec2", config.Config.EC2_REGION)
+            # This is a service resource
+            self.boto3resource: EC2ServiceResource = boto3.resource("ec2", config.Config.EC2_REGION) # TODO: rename this ot self.ec2resource
             self.boto3client = boto3.client("ec2", config.Config.EC2_REGION)
 
             # Get images from ec2

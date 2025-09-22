@@ -246,7 +246,7 @@ class TangoJob(object):
         if self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
-            dictionary = TangoDictionary.create(dict_hash)
+            dictionary: TangoDictionary[TangoJob] = TangoDictionary.create(dict_hash)
             dictionary.delete(key)
             self._remoteLocation = dict_hash + ":" + str(new_id)
             self.updateRemote()
@@ -274,7 +274,7 @@ class TangoJob(object):
         if Config.USE_REDIS and self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
-            dictionary = TangoDictionary(dict_hash)
+            dictionary: TangoDictionary[TangoJob] = TangoDictionary.create(dict_hash)
             temp_job = dictionary.get(key) # Key should be in dictionary
             if temp_job is None:
                 print(f"Job {key} not found in dictionary {dict_hash}") # TODO: add better error handling for TangoJob
@@ -285,7 +285,7 @@ class TangoJob(object):
         if Config.USE_REDIS and self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
-            dictionary = TangoDictionary(dict_hash)
+            dictionary: TangoDictionary[TangoJob] = TangoDictionary.create(dict_hash)
             dictionary.set(key, self)
             
     def deleteFromDict(self, dictionary : TangoDictionary) -> None:
@@ -440,6 +440,7 @@ class TangoRemoteQueue(object):
                 break
 
 T = TypeVar('T')
+# Dictionary from string to T
 class TangoDictionary(Protocol[T]):
 
     @staticmethod

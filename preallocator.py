@@ -6,7 +6,7 @@ import logging
 import time
 import copy
 
-from tangoObjects import TangoDictionary, TangoQueue, TangoIntValue
+from tangoObjects import TangoDictionary, TangoQueue, TangoIntValue, TangoMachine
 from config import Config
 
 #
@@ -22,7 +22,7 @@ from config import Config
 
 class Preallocator(object):
     def __init__(self, vmms):
-        self.machines = TangoDictionary("machines")
+        self.machines: TangoDictionary[TangoMachine] = TangoDictionary.create("machines")
         self.lock = threading.Lock()
         self.nextID = TangoIntValue("nextID", 1000)
         self.vmms = vmms
@@ -33,7 +33,7 @@ class Preallocator(object):
         if vmName not in self.machines:
             return 0
         else:
-            return len(self.machines.get(vmName)[0])
+            return len(self.machines.getExn(vmName)[0])
 
     def update(self, vm, num):
         """update - Updates the number of machines of a certain type
@@ -47,7 +47,10 @@ class Preallocator(object):
         self.lock.acquire()
         if vm.name not in self.machines:
             self.machines.set(vm.name, [[], TangoQueue(vm.name)])
-            self.machines.get(vm.name)[1].make_empty()
+            self.machines.getExn(vm.name)[1].make_empty() # TODO: oh bruh this is incorrect.
+            # TODO: when used with a TangoRemoteDictionary, this will create a transient copy of the queue (from the redis pickle),
+            # TODO: then modify it, and then discard it :). self.machines will not be updated by a .get/.getExn call.
+            # TODO: TangoDictionary's should have value semantics, so the value type should probably be a tuple
             self.log.debug("Creating empty pool of %s instances" % (vm.name))
         self.lock.release()
 

@@ -18,7 +18,7 @@ class TestDictionary(unittest.TestCase):
         }
 
     def runDictionaryTests(self):
-        test_dict = TangoDictionary("test")
+        test_dict = TangoDictionary.create("test")
         self.assertEqual(test_dict.keys(), [])
         self.assertEqual(test_dict.values(), [])
 

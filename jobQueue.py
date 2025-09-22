@@ -53,8 +53,8 @@ class JobQueue(object):
         is needed since there are multiple worker threads and they might be
         using the makeUnassigned api.
         """
-        self.liveJobs = TangoDictionary("liveJobs")
-        self.deadJobs = TangoDictionary("deadJobs")
+        self.liveJobs: TangoDictionary[TangoJob] = TangoDictionary.create("liveJobs")
+        self.deadJobs: TangoDictionary[TangoJob] = TangoDictionary.create("deadJobs")
         self.unassignedJobs = TangoQueue("unassignedLiveJobs")
         self.queueLock = threading.Lock()
         self.preallocator = preallocator
@@ -187,7 +187,7 @@ class JobQueue(object):
 
         self.log.info("addDead|Unassigning job %s" % str(job.id))
         job.makeUnassigned()
-        job.retries = 0
+        job.resetRetries()
 
         self.log.debug("addDead|Acquiring lock to job queue.")
         self.queueLock.acquire()
@@ -248,12 +248,13 @@ class JobQueue(object):
 
     # TODO: this function is a little weird. It sets the state of job to be "assigned", but not to which worker. 
     # TODO: It does assign the job to a particular VM though.
-    def assignJob(self, jobId, vm=None):
+    # Precondition: jobId is in self.liveJobs
+    def assignJob(self, jobId, vm=None) -> None:
         """assignJob - marks a job to be assigned"""
         self.queueLock.acquire()
         self.log.debug("assignJob| Acquired lock to job queue.")
 
-        job = self.liveJobs.get(jobId)
+        job = self.liveJobs.getExn(jobId)
         print(str(job), jobId)
         # print(str(self.unassignedJobs))
         # print(str(self.liveJobs))
