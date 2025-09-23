@@ -342,16 +342,35 @@ class TangoNativeIntValue(object):
     def set(self, val):
         self.val = val
         return val
+    
 
+class TangoQueue(Protocol):
+    @staticmethod
+    def create(key_name: str) -> TangoQueue:
+        if Config.USE_REDIS:
+            return TangoRemoteQueue(key_name)
+        else:
+            return ExtendedQueue()
 
-def TangoQueue(object_name):
-    if Config.USE_REDIS:
-        return TangoRemoteQueue(object_name)
-    else:
-        return ExtendedQueue()
+    @abstractmethod
+    def qsize(self) -> int:
+        ...
+    def empty(self) -> bool:
+        ...
+    def put(self, item) -> None:
+        ...
+    def get(self, block=True, timeout=None) -> Optional[T]:
+        ...
+    def get_nowait(self) -> Optional[T]:
+        ...
+    def remove(self, item) -> None:
+        ...
+    def _clean(self) -> None:
+        ...
+    def make_empty(self) -> None:
+        ...
 
-
-class ExtendedQueue(Queue):
+class ExtendedQueue(Queue, TangoQueue):
     """Python Thread safe Queue with the remove and clean function added"""
 
     def test(self):
@@ -369,9 +388,12 @@ class ExtendedQueue(Queue):
     def _clean(self):
         with self.mutex:
             self.queue.clear()
+            
+    def make_empty(self):
+        self._clean()
+            
 
-
-class TangoRemoteQueue(object):
+class TangoRemoteQueue(TangoQueue):
 
     """Simple Queue with Redis Backend"""
 
@@ -433,7 +455,7 @@ class TangoRemoteQueue(object):
     def _clean(self):
         self.__db.delete(self.key)
 
-    def make_empty(self):
+    def make_empty(self) -> None:
         while True:
             item = self.__db.lpop(self.key)
             if item is None:

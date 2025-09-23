@@ -55,7 +55,7 @@ class JobQueue(object):
         """
         self.liveJobs: TangoDictionary[TangoJob] = TangoDictionary.create("liveJobs")
         self.deadJobs: TangoDictionary[TangoJob] = TangoDictionary.create("deadJobs")
-        self.unassignedJobs = TangoQueue("unassignedLiveJobs")
+        self.unassignedJobs = TangoQueue.create("unassignedLiveJobs")
         self.queueLock = threading.Lock()
         self.preallocator = preallocator
         self.log = logging.getLogger("JobQueue")

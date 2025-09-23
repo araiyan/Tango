@@ -20,7 +20,8 @@ from datetime import datetime
 import tango  # Written this way to avoid circular imports
 from config import Config
 from jobQueue import JobQueue
-from tangoObjects import TangoJob, TangoQueue
+from tangoObjects import TangoJob, TangoQueue, TangoMachine
+from typing import List, Tuple
 from worker import Worker
 
 
@@ -143,14 +144,15 @@ if __name__ == "__main__":
         tango_server.log.debug("Resetting Tango VMs")
         tango_server.resetTango(tango_server.preallocator.vmms)
         for key in tango_server.preallocator.machines.keys():
-            tango_server.preallocator.machines.set(key, [[], TangoQueue(key)])
+            machine: Tuple[List[TangoMachine], TangoQueue] = ([], TangoQueue.create(key))
+            machine[1].make_empty()
+            tango_server.preallocator.machines.set(key, machine)
 
             # The above call sets the total pool empty.  But the free pool which
             # is a queue in redis, may not be empty.  When the job manager restarts,
             # resetting the free queue using the key doesn't change its content.
             # Therefore we empty the queue, thus the free pool, to keep it consistent
             # with the total pool.
-            tango_server.preallocator.machines.get(key)[1].make_empty()
         jobs = JobManager(tango_server.jobQueue)
 
         print("Starting the stand-alone Tango JobManager")

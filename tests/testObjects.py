@@ -69,7 +69,7 @@ class TestQueue(unittest.TestCase):
             self.assertEqual(self.testQueue.qsize(), self.expectedSize)
 
     def runQueueTests(self):
-        self.testQueue = TangoQueue("self.testQueue")
+        self.testQueue = TangoQueue.create("self.testQueue")
         self.expectedSize = 0
         self.assertEqual(self.testQueue.qsize(), self.expectedSize)
         self.assertTrue(self.testQueue.empty())
