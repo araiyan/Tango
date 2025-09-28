@@ -10,6 +10,7 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 import os
 import shutil
+from enum import Enum
 
 from datetime import datetime
 from config import Config
@@ -25,6 +26,11 @@ from jobQueue import JobQueue
 # anything else in the system.
 #
 
+class DetachMethod(Enum):
+    RETURN_TO_POOL = "return_to_pool"
+    DESTROY_WITHOUT_REPLACEMENT = "destroy_without_replacement"
+    DESTROY_AND_REPLACE = "replace"
+
 
 class Worker(threading.Thread):
     def __init__(self, job, vmms, jobQueue, preallocator, preVM):
@@ -37,12 +43,18 @@ class Worker(threading.Thread):
         self.preVM = preVM
         threading.Thread.__init__(self)
         self.log = logging.getLogger("Worker")
+        self.cleanupStatus = False
 
     #
     # Worker helper functions
     #
-    # TODO: These should not have default values in my opinion
-    def detachVM(self, return_vm=False, replace_vm=False):
+    def __del__(self):
+        if self.job.stopBefore == "": # We don't want to cleanup the VM if we are stopping early for debugging 
+            assert self.cleanupStatus, "Worker must call detachVM before returning"
+    
+    
+    # TODO: Return_vm should not have default values in my opinion
+    def detachVM(self, detachMethod: DetachMethod):
         """detachVM - Detach the VM from this worker. The options are
         to return it to the pool's free list (return_vm), destroy it
         (not return_vm), and if destroying it, whether to replace it
@@ -50,20 +62,25 @@ class Worker(threading.Thread):
         this function before returning.
         """
         # job-owned instance, simply destroy after job is completed
+        self.cleanupStatus = True
         if self.job.vm.ec2_vmms:
             self.vmms.safeDestroyVM(self.job.vm)
-        elif return_vm:
-            self.preallocator.freeVM(self.job.vm)
         else:
-            self.vmms.safeDestroyVM(self.job.vm)
-            if replace_vm:
+            if detachMethod == DetachMethod.RETURN_TO_POOL:
+                self.preallocator.freeVM(self.job.vm)
+            elif detachMethod == DetachMethod.DESTROY_WITHOUT_REPLACEMENT:
+                self.vmms.safeDestroyVM(self.job.vm)
+                self.preallocator.removeVM(self.job.vm)
+            elif detachMethod == DetachMethod.DESTROY_AND_REPLACE:
+                self.vmms.safeDestroyVM(self.job.vm)
                 self.preallocator.createVM(self.job.vm)
-
-            # Important: don't remove the VM from the pool until its
-            # replacement has been created. Otherwise there is a
-            # potential race where the job manager thinks that the
-            # pool is empty and creates a spurious vm.
-            self.preallocator.removeVM(self.job.vm)
+                # Important: don't remove the VM from the pool until its
+                # replacement has been created. Otherwise there is a
+                # potential race where the job manager thinks that the
+                # pool is empty and creates a spurious vm.
+                self.preallocator.removeVM(self.job.vm)
+            else:
+                raise ValueError(f"Invalid detach method: {detachMethod}")
 
     # TODO: figure out what hdrfile, ret and err are
     def rescheduleJob(self, hdrfile, ret, err):
@@ -88,32 +105,18 @@ class Worker(threading.Thread):
                 os.remove(hdrfile)
             except OSError:
                 pass
-            self.detachVM(return_vm=False, replace_vm=True)
+            self.detachVM(DetachMethod.DESTROY_AND_REPLACE)
             self.jobQueue.unassignJob(self.job.id)
 
         # Here is where we give up
         else:
-            self.log.error("Giving up on job %s:%d" % (self.job.name, self.job.id))
+            full_err = f"Error: {err}. Unable to complete job after {Config.JOB_RETRIES} tries. Please resubmit.\nJob status: waitVM={ret['waitvm']} initializeVM={ret['initializevm']} copyIn={ret['copyin']} runJob={ret['runjob']} copyOut={ret['copyout']}"
+            self.log.error(f"Giving up on job %s:%d. %s" % (self.job.name, self.job.id, full_err))
             self.job.appendTrace(
-                "%s|Giving up on job %s:%d"
-                % (datetime.now().ctime(), self.job.name, self.job.id)
+                "%s|Giving up on job %s:%d. %s"
+                % (datetime.now().ctime(), self.job.name, self.job.id, full_err)
             )
-            self.jobQueue.makeDead(self.job, err) # Note: this reports the error that caused the last call to rescheduleJob to fail
-
-            self.appendMsg(
-                hdrfile,
-                "Internal error: Unable to complete job after %d tries. Pleae resubmit"
-                % (Config.JOB_RETRIES),
-            )
-            self.appendMsg(
-                hdrfile,
-                "Job status: waitVM=%s initializeVM=%s copyIn=%s runJob=%s copyOut=%s"
-                % (ret["waitvm"], ret["initializevm"], ret["copyin"], ret["runjob"], ret["copyout"]),
-            )
-
-            self.catFiles(hdrfile, self.job.outputFile)
-            self.detachVM(return_vm=False, replace_vm=True)
-            self.notifyServer(self.job)
+            self.afterJobExecution(hdrfile, full_err, DetachMethod.DESTROY_AND_REPLACE)
 
     def appendMsg(self, filename, msg):
         """appendMsg - Append a timestamped Tango message to a file"""
@@ -166,10 +169,7 @@ class Worker(threading.Thread):
         except Exception as e:
             self.log.debug("Error in notifyServer: %s" % str(e))
 
-    def afterJobExecution(self, hdrfile, msg, returnVM, killVM=True): 
-        # TODO: I don't think killVM is a good variable name, it can refer to either returning or destroying the VM
-        # TODO: Also, what does it mean to not kill the VM? (i.e. not returning it)? It only gets called when we have a job.stopBefore.
-        # TODO: This directly contradicts the documentation of detachVM ("The worker must always call this function before returning.")
+    def afterJobExecution(self, hdrfile, msg, detachMethod: Optional[DetachMethod]): 
         self.jobQueue.makeDead(self.job, msg)
         
         # Update the text that users see in the autodriver output file
@@ -178,8 +178,8 @@ class Worker(threading.Thread):
         os.chmod(self.job.outputFile, 0o644)
         
         # Thread exit after termination
-        if killVM:
-            self.detachVM(return_vm=returnVM)
+        if detachMethod is not None:
+            self.detachVM(detachMethod)
         self.notifyServer(self.job)
         return
 
@@ -286,7 +286,7 @@ class Worker(threading.Thread):
             if self.job.stopBefore == "waitvm":
                 msg = "Execution stopped before %s" % self.job.stopBefore
                 returnVM = True
-                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
 
@@ -324,7 +324,7 @@ class Worker(threading.Thread):
             if (self.job.stopBefore == "copyin"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
                 returnVM = True
-                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             # Copy input files to VM
             self.log.debug(f"Before copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
@@ -356,7 +356,7 @@ class Worker(threading.Thread):
             if (self.job.stopBefore == "runjob"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
                 returnVM = True
-                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             # Run the job on the virtual machine
             ret["runjob"] = self.vmms.runJob(
@@ -388,7 +388,7 @@ class Worker(threading.Thread):
             if (self.job.stopBefore == "copyout"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
                 returnVM = True
-                self.afterJobExecution(hdrfile, msg, returnVM, False)
+                self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             # Copy the output back.
             ret["copyout"] = self.vmms.copyOut(vm, self.job.outputFile)
@@ -422,7 +422,7 @@ class Worker(threading.Thread):
             # Move the job from the live queue to the dead queue
             # with an explanatory message
             msg = "Success: Autodriver returned normally"
-            (returnVM, replaceVM) = (True, False)
+            detachMethod = DetachMethod.RETURN_TO_POOL
             if ret["copyin"] != 0:
                 msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
             elif ret["runjob"] != 0:
@@ -436,7 +436,7 @@ class Worker(threading.Thread):
                     # and do not retry the job since the job may have damaged
                     # the VM.
                     msg = "Error: OS error while running job on VM"
-                    (returnVM, replaceVM) = (False, True)
+                    detachMethod = DetachMethod.DESTROY_WITHOUT_REPLACEMENT
                     self.job.vm.notes = str(self.job.id) + "_" + self.job.name
                     self.job.vm.keep_for_debugging = True
                 else:  # This should never happen
@@ -447,7 +447,7 @@ class Worker(threading.Thread):
             elif ret["copyout"] != 0:
                 msg += "Error: Copy out from VM failed (status=%d)" % (ret["copyout"])
 
-            self.afterJobExecution(hdrfile, msg, returnVM)
+            self.afterJobExecution(hdrfile, msg, detachMethod)
             return
 
         #
@@ -463,4 +463,4 @@ class Worker(threading.Thread):
             if self.preVM and not vm:
                 vm = self.job.vm = self.preVM
             if vm:
-                self.detachVM(return_vm=False, replace_vm=True)
+                self.detachVM(DetachMethod.DESTROY_AND_REPLACE)
