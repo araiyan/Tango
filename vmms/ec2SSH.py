@@ -347,6 +347,7 @@ class Ec2SSH(VMMSInterface):
         """initializeVM - Tell EC2 to create a new VM instance.
 
         Returns a boto.ec2.instance.Instance object.
+        Reads from vm's id and name, writes to vm's instance_id and domain_name
         """
         newInstance: Optional[Instance] = None
         # Create the instance and obtain the reservation

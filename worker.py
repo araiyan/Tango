@@ -15,6 +15,8 @@ from enum import Enum
 from datetime import datetime
 from config import Config
 from jobQueue import JobQueue
+from typing import Optional
+from tangoObjects import TangoMachine
 #
 # Worker - The worker class is very simple and very dumb. The goal is
 # to walk through the VMMS interface, track the job's progress, and if
@@ -32,8 +34,9 @@ class DetachMethod(Enum):
     DESTROY_AND_REPLACE = "replace"
 
 
+# We always preallocate a VM for the worker to use
 class Worker(threading.Thread):
-    def __init__(self, job, vmms, jobQueue, preallocator, preVM):
+    def __init__(self, job, vmms, jobQueue, preallocator, preVM: TangoMachine):
         threading.Thread.__init__(self)
         self.daemon = True
         self.job = job
@@ -204,69 +207,30 @@ class Worker(threading.Thread):
             hdrfile = tempfile.mktemp()
             self.appendMsg(hdrfile, "Received job %s:%d" % (self.job.name, self.job.id))
 
-            # Assigning job to a preallocated VM
-            if self.preVM:  # self.preVM:
-                assert not Config.VMMS_NAME == "ec2ssh", "Unimplemented"
-                self.log.debug("Assigning job to preallocated VM")
-                self.job.makeVM(self.preVM)
-                self.log.info(
-                    "Assigned job %s:%d existing VM %s"
-                    % (
-                        self.job.name,
-                        self.job.id,
-                        self.vmms.instanceName(self.preVM.id, self.preVM.name),
-                    )
+            # Assigning job to the preallocated VM
+            self.log.debug("Assigning job to preallocated VM")
+            self.job.makeVM(self.preVM)
+            self.log.info(
+                "Assigned job %s:%d existing VM %s"
+                % (
+                    self.job.name,
+                    self.job.id,
+                    self.vmms.instanceName(self.preVM.id, self.preVM.name),
                 )
-                self.job.appendTrace(
-                    "%s|Assigned job %s:%d existing VM %s"
-                    % (
-                        datetime.now().ctime(),
-                        self.job.name,
-                        self.job.id,
-                        self.vmms.instanceName(self.preVM.id, self.preVM.name),
-                    )
+            )
+            self.job.appendTrace(
+                "%s|Assigned job %s:%d existing VM %s"
+                % (
+                    datetime.now().ctime(),
+                    self.job.name,
+                    self.job.id,
+                    self.vmms.instanceName(self.preVM.id, self.preVM.name),
                 )
-                self.log.debug("Assigned job to preallocated VM")
-                ret["initializevm"] = 0 # Vacuous success since it doesn't happen
-            # Assigning job to a new VM
-            else:
-                self.log.debug("Assigning job to a new VM")
-                self.job.syncRemote()
-                self.job.vm.id = self.job.id
-                self.job.updateRemote()
-
-                self.log.info(
-                    "Assigned job %s:%d new VM %s"
-                    % (
-                        self.job.name,
-                        self.job.id,
-                        self.vmms.instanceName(self.job.vm.id, self.job.vm.name),
-                    )
-                )
-                self.job.appendTrace(
-                    "%s|Assigned job %s:%d new VM %s"
-                    % (
-                        datetime.now().ctime(),
-                        self.job.name,
-                        self.job.id,
-                        self.vmms.instanceName(self.job.vm.id, self.job.vm.name),
-                    )
-                )
-
-                # Host name returned from EC2 is stored in the vm object
-                ret["initializevm"] = self.vmms.initializeVM(self.job.vm)
-                if ret["initializevm"] != 0:
-                    self.rescheduleJob(
-                        hdrfile,
-                        ret,
-                        "Internal error: initializeVM failed"
-                    )
-                    return
-                
-                self.log.debug("Asigned job to a new VM")
+            )
+            self.log.debug("Assigned job to preallocated VM")
+            ret["initializevm"] = 0 # Vacuous success since it doesn't happen
 
             vm = self.job.vm
-            returnVM = True
 
             # Wait for the instance to be ready
             self.log.debug(
@@ -285,7 +249,6 @@ class Worker(threading.Thread):
             self.log.debug("Waiting for VM")
             if self.job.stopBefore == "waitvm":
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                returnVM = True
                 self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
@@ -323,7 +286,6 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "copyin"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                returnVM = True
                 self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             # Copy input files to VM
@@ -355,7 +317,6 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "runjob"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                returnVM = True
                 self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             # Run the job on the virtual machine
@@ -405,7 +366,6 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "copyout"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                returnVM = True
                 self.afterJobExecution(hdrfile, msg, detachMethod=None)
                 return
             # Copy the output back.
