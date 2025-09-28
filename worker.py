@@ -53,7 +53,6 @@ class Worker(threading.Thread):
             assert self.cleanupStatus, "Worker must call detachVM before returning"
     
     
-    # TODO: Return_vm should not have default values in my opinion
     def detachVM(self, detachMethod: DetachMethod):
         """detachVM - Detach the VM from this worker. The options are
         to return it to the pool's free list (return_vm), destroy it
@@ -65,6 +64,7 @@ class Worker(threading.Thread):
         self.cleanupStatus = True
         if self.job.vm.ec2_vmms:
             self.vmms.safeDestroyVM(self.job.vm)
+            # TODO: what about the preallocator?
         else:
             if detachMethod == DetachMethod.RETURN_TO_POOL:
                 self.preallocator.freeVM(self.job.vm)
@@ -110,7 +110,7 @@ class Worker(threading.Thread):
 
         # Here is where we give up
         else:
-            full_err = f"Error: {err}. Unable to complete job after {Config.JOB_RETRIES} tries. Please resubmit.\nJob status: waitVM={ret['waitvm']} initializeVM={ret['initializevm']} copyIn={ret['copyin']} runJob={ret['runjob']} copyOut={ret['copyout']}"
+            full_err = f"Internal Error: {err}. Unable to complete job after {Config.JOB_RETRIES} tries. Please resubmit.\nJob status: waitVM={ret['waitvm']} initializeVM={ret['initializevm']} copyIn={ret['copyin']} runJob={ret['runjob']} copyOut={ret['copyout']}"
             self.log.error(f"Giving up on job %s:%d. %s" % (self.job.name, self.job.id, full_err))
             self.job.appendTrace(
                 "%s|Giving up on job %s:%d. %s"
@@ -333,7 +333,7 @@ class Worker(threading.Thread):
 
             if ret["copyin"] != 0:
                 Config.copyin_errors += 1
-                msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
+                msg = "Copy in to VM failed (status=%d)" % (ret["copyin"])
                 self.job.vm.notes = str(self.job.id) + "_" + self.job.name
                 self.job.vm.keep_for_debugging = True
                 self.log.debug(msg)
@@ -366,13 +366,31 @@ class Worker(threading.Thread):
                 self.job.disableNetwork,
             )
             if ret["runjob"] != 0:
-                Config.runjob_errors += 1
-                if ret["runjob"] == -1:
+                if ret["runjob"] == 1:  # This should never happen
+                    msg = "RunJob: Autodriver usage error (status=%d)" % (ret["runjob"])
+                elif ret["runjob"] == 2:
+                    msg = "RunJob: Job timed out after %d seconds" % (self.job.timeout)
+                elif ret["runjob"] == 3:  # EXIT_OSERROR in Autodriver
+                    # Abnormal job termination (Autodriver encountered an OS
+                    # error).  Assume that the VM is damaged. Destroy this VM
+                    # and do not retry the job since the job may have damaged
+                    # the VM.
+                    msg = "RunJob: OS error while running job on VM"
+                    # TODO: do we need to not reschedule the job?
+                    self.job.vm.notes = str(self.job.id) + "_" + self.job.name
+                    self.job.vm.keep_for_debugging = True
+                elif ret["runjob"] == -1:
                     Config.runjob_timeouts += 1
+                    # TODO: difference between 2 and -1?
+                else:  # This should never happen
+                    msg = "RunJob: Unknown autodriver error (status=%d)" % (
+                        ret["runjob"]
+                    )
+                Config.runjob_errors += 1
                 self.rescheduleJob(
                     hdrfile,
                     ret,
-                    "Internal error: runJob failed"
+                    msg
                 )
                 return
             
@@ -397,7 +415,7 @@ class Worker(threading.Thread):
                 self.rescheduleJob(
                     hdrfile,
                     ret,
-                    "Internal error: copyOut failed"
+                    f"Internal error: copyOut failed (status={ret['copyout']})"
                 )
                 return
             
@@ -422,32 +440,31 @@ class Worker(threading.Thread):
             # Move the job from the live queue to the dead queue
             # with an explanatory message
             msg = "Success: Autodriver returned normally"
-            detachMethod = DetachMethod.RETURN_TO_POOL
-            if ret["copyin"] != 0:
-                msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
-            elif ret["runjob"] != 0:
-                if ret["runjob"] == 1:  # This should never happen
-                    msg = "Error: Autodriver usage error (status=%d)" % (ret["runjob"])
-                elif ret["runjob"] == 2:
-                    msg = "Error: Job timed out after %d seconds" % (self.job.timeout)
-                elif ret["runjob"] == 3:  # EXIT_OSERROR in Autodriver
-                    # Abnormal job termination (Autodriver encountered an OS
-                    # error).  Assume that the VM is damaged. Destroy this VM
-                    # and do not retry the job since the job may have damaged
-                    # the VM.
-                    msg = "Error: OS error while running job on VM"
-                    detachMethod = DetachMethod.DESTROY_WITHOUT_REPLACEMENT
-                    self.job.vm.notes = str(self.job.id) + "_" + self.job.name
-                    self.job.vm.keep_for_debugging = True
-                else:  # This should never happen
-                    msg = "Error: Unknown autodriver error (status=%d)" % (
-                        ret["runjob"]
-                    )
+            self.afterJobExecution(hdrfile, msg, DetachMethod.RETURN_TO_POOL)
+            # if ret["copyin"] != 0:
+            #     msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
+            # elif ret["runjob"] != 0:
+            #     if ret["runjob"] == 1:  # This should never happen
+            #         msg = "Error: Autodriver usage error (status=%d)" % (ret["runjob"])
+            #     elif ret["runjob"] == 2:
+            #         msg = "Error: Job timed out after %d seconds" % (self.job.timeout)
+            #     elif ret["runjob"] == 3:  # EXIT_OSERROR in Autodriver
+            #         # Abnormal job termination (Autodriver encountered an OS
+            #         # error).  Assume that the VM is damaged. Destroy this VM
+            #         # and do not retry the job since the job may have damaged
+            #         # the VM.
+            #         msg = "Error: OS error while running job on VM"
+            #         detachMethod = DetachMethod.DESTROY_WITHOUT_REPLACEMENT
+            #         self.job.vm.notes = str(self.job.id) + "_" + self.job.name
+            #         self.job.vm.keep_for_debugging = True
+            #     else:  # This should never happen
+            #         msg = "Error: Unknown autodriver error (status=%d)" % (
+            #             ret["runjob"]
+            #         )
 
-            elif ret["copyout"] != 0:
-                msg += "Error: Copy out from VM failed (status=%d)" % (ret["copyout"])
+            # elif ret["copyout"] != 0:
+            #     msg += "Error: Copy out from VM failed (status=%d)" % (ret["copyout"])
 
-            self.afterJobExecution(hdrfile, msg, detachMethod)
             return
 
         #
