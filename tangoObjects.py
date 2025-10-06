@@ -322,10 +322,7 @@ class TangoRemoteQueue(object):
         self.__db.delete(self.key)
 
     def make_empty(self):
-        while True:
-            item = self.__db.lpop(self.key)
-            if item is None:
-                break
+        self.__db.delete(self.key)
 
 
 # This is an abstract class that decides on
