@@ -291,37 +291,32 @@ def tango_addJob():
             timeout=get_arg('timeout'),
             max_kb=get_arg('maxsize'),
             output_file=get_arg('outputFile'),
+            jobName=get_arg('jobname'),
+            accessKeyId=get_arg('accessKeyId'),
+            accessKey=get_arg('accessKey'),
+            disable_network=get_arg('disableNetwork'),
+            instanceType=get_arg('instanceType'),
+            ec2Vmms=get_arg('vmms') == "ec2SSH",
+            stopBefore=get_arg('stopBefore'),
+            notifyURL=get_arg('notifyURL'),
+            callback_url=get_arg('callbackURL'),
         )
-        requestObj["jobName"] = get_arg('jobname')
-
-        if get_arg('notifyURL'):
-            requestObj["notifyURL"] = get_arg('notifyURL')
-
-        if get_arg('callbackURL'):
-            requestObj["callback_url"] = get_arg('callbackURL')
-
-        requestObj["accessKeyId"] = get_arg('accessKeyId')
-        requestObj["accessKey"] = get_arg('accessKey')
-        requestObj["disable_network"] = get_arg('disableNetwork')
-        requestObj["instanceType"] = get_arg('instanceType')
-        requestObj["ec2Vmms"] = get_arg('vmms') == "ec2SSH"
-        requestObj["stopBefore"] = get_arg('stopBefore')
 
         response = requests.post(
             "%s://%s:%d/addJob/%s/%s/"
             % (_tango_protocol, get_arg('server'), get_arg('port'), get_arg('key'), get_arg('courselab')),
-            data=json.dumps(requestObj),
+            data=json.dumps(asdict(requestObj)),
         )
         print(
             "Sent request to %s:%d/addJob/%s/%s/ \t jobObj=%s"
-            % (get_arg('server'), get_arg('port'), get_arg('key'), get_arg('courselab'), json.dumps(requestObj))
+            % (get_arg('server'), get_arg('port'), get_arg('key'), get_arg('courselab'), json.dumps(asdict(requestObj)))
         )
         print(response.text)
 
     except Exception as err:
         print(
             "Failed to send request to %s:%d/addJob/%s/%s/ \t jobObj=%s"
-            % (get_arg('server'), get_arg('port'), get_arg('key'), get_arg('courselab'), json.dumps(requestObj))
+            % (get_arg('server'), get_arg('port'), get_arg('key'), get_arg('courselab'), json.dumps(asdict(requestObj)) if 'requestObj' in locals() else 'N/A')
         )
         print(str(err))
         sys.exit(0)
