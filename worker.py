@@ -49,7 +49,7 @@ class Worker(threading.Thread):
         this function before returning.
         """
         # job-owned instance, simply destroy after job is completed
-        if self.job.vm.ec2_vmms:
+        if Config.VMMS_NAME == "ec2SSH":
             self.vmms.safeDestroyVM(self.job.vm)
         elif return_vm:
             self.preallocator.freeVM(self.job.vm)

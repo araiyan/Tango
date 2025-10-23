@@ -36,7 +36,6 @@ class RequestObj:
     accessKey: str
     disable_network: bool
     instanceType: str
-    ec2Vmms: bool
     stopBefore: str
     notifyURL: Optional[str] = None
     callback_url: Optional[str] = None
@@ -105,11 +104,6 @@ parser.add_argument("--jobid", help="Job ID")
 parser.add_argument("--runJob", help="Run a job from a specific directory")
 parser.add_argument("--numJobs", type=int, default=1, help="Number of jobs to run")
 
-parser.add_argument(
-    "--vmms",
-    default="localDocker",
-    help="Choose vmms between ec2SSH, tashiSSH, localDocker, and distDocker",
-)
 parser.add_argument(
     "--image", default="", help='VM image name (default "autograding_image")'
 )
@@ -296,7 +290,6 @@ def tango_addJob():
             accessKey=get_arg('accessKey'),
             disable_network=get_arg('disableNetwork'),
             instanceType=get_arg('instanceType'),
-            ec2Vmms=get_arg('vmms') == "ec2SSH",
             stopBefore=get_arg('stopBefore'),
             notifyURL=get_arg('notifyURL'),
             callback_url=get_arg('callbackURL'),

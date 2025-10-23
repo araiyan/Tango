@@ -72,7 +72,7 @@ class JobManager(object):
             try:
                 # if the job is a ec2 vmms job
                 # spin up an ec2 instance for that job
-                if job.vm.ec2_vmms:
+                if Config.VMMS_NAME == "ec2SSH":
                     from vmms.ec2SSH import Ec2SSH
 
                     vmms = Ec2SSH(job.accessKeyId, job.accessKey)
