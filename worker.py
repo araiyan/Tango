@@ -15,7 +15,6 @@ from enum import Enum
 from datetime import datetime
 from config import Config
 from jobQueue import JobQueue
-from typing import Optional
 from tangoObjects import TangoMachine
 #
 # Worker - The worker class is very simple and very dumb. The goal is
@@ -65,9 +64,9 @@ class Worker(threading.Thread):
         """
         # job-owned instance, simply destroy after job is completed
         self.cleanupStatus = True
-        if self.job.vm.ec2_vmms:
+        if Config.VMMS_NAME == "ec2SSH":
             self.vmms.safeDestroyVM(self.job.vm)
-            # TODO: what about the preallocator?
+            # EC2 doesn't use the preallocator
         else:
             if detachMethod == DetachMethod.RETURN_TO_POOL:
                 self.preallocator.freeVM(self.job.vm)
@@ -172,7 +171,7 @@ class Worker(threading.Thread):
         except Exception as e:
             self.log.debug("Error in notifyServer: %s" % str(e))
 
-    def afterJobExecution(self, hdrfile, msg, detachMethod: Optional[DetachMethod]): 
+    def afterJobExecution(self, hdrfile, msg, detachMethod: DetachMethod): 
         self.jobQueue.makeDead(self.job, msg)
         
         # Update the text that users see in the autodriver output file
@@ -181,8 +180,7 @@ class Worker(threading.Thread):
         os.chmod(self.job.outputFile, 0o644)
         
         # Thread exit after termination
-        if detachMethod is not None:
-            self.detachVM(detachMethod)
+        self.detachVM(detachMethod)
         self.notifyServer(self.job)
         return
 
@@ -249,7 +247,8 @@ class Worker(threading.Thread):
             self.log.debug("Waiting for VM")
             if self.job.stopBefore == "waitvm":
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.afterJobExecution(hdrfile, msg, detachMethod=None)
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
 
@@ -286,7 +285,8 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "copyin"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.afterJobExecution(hdrfile, msg, detachMethod=None)
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             # Copy input files to VM
             self.log.debug(f"Before copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
@@ -317,7 +317,8 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "runjob"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.afterJobExecution(hdrfile, msg, detachMethod=None)
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             # Run the job on the virtual machine
             ret["runjob"] = self.vmms.runJob(
@@ -366,7 +367,8 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "copyout"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.afterJobExecution(hdrfile, msg, detachMethod=None)
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             # Copy the output back.
             ret["copyout"] = self.vmms.copyOut(vm, self.job.outputFile)
@@ -400,7 +402,7 @@ class Worker(threading.Thread):
             # Move the job from the live queue to the dead queue
             # with an explanatory message
             msg = "Success: Autodriver returned normally"
-            self.afterJobExecution(hdrfile, msg, DetachMethod.RETURN_TO_POOL)
+            self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.RETURN_TO_POOL)
             # if ret["copyin"] != 0:
             #     msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
             # elif ret["runjob"] != 0:

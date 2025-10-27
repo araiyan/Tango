@@ -456,10 +456,7 @@ class TangoRemoteQueue(TangoQueue):
         self.__db.delete(self.key)
 
     def make_empty(self) -> None:
-        while True:
-            item = self.__db.lpop(self.key)
-            if item is None:
-                break
+        self.__db.delete(self.key)
 
 T = TypeVar('T')
 # Dictionary from string to T

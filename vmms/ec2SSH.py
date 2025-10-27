@@ -533,7 +533,14 @@ class Ec2SSH(VMMSInterface):
             time.sleep(config.Config.TIMER_POLL_INTERVAL)
 
     def copyIn(self, vm, inputFiles, job_id=None):
-        """copyIn - Copy input files to VM"""
+        """copyIn - Copy input files to VM
+        Args:
+        - vm is a TangoMachine object
+        - inputFiles is a list of objects with attributes localFile and destFile. 
+            localFile is the file on the host, destFile is the file on the VM.
+        - job_id is the job id of the job being run on the VM. 
+            It is used for logging purposes only.
+        """
         self.log.info(
             "copyIn %s - writing files" % self.instanceName(vm.id, vm.name)
         )
