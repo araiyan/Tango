@@ -135,7 +135,7 @@ class JobManager(object):
 if __name__ == "__main__":
 
     if not Config.USE_REDIS:
-        tango.log.error(
+        print(
             "You need to have Redis running to be able to initiate stand-alone\
          JobManager"
         )
@@ -155,5 +155,5 @@ if __name__ == "__main__":
             # with the total pool.
         jobs = JobManager(tango_server.jobQueue)
 
-        tango.log.info("Starting the stand-alone Tango JobManager")
+        tango_server.log.info("Starting the stand-alone Tango JobManager")
         jobs.run()
