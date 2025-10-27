@@ -106,7 +106,7 @@ class TangoJob(object):
         stopBefore="",
     ):
         self._assigned = False
-        self._retries = 0
+        self._retries: int = 0
 
         self._vm = vm
         if input is None:
@@ -130,6 +130,7 @@ class TangoJob(object):
         self.syncRemote()
         return f"ID: {self.id} - Name: {self.name}"
     
+    # TODO: reduce code size/duplication by setting TangoJob as a dataclass
     # Getters for private variables
     @property
     def assigned(self):
