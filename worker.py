@@ -51,8 +51,7 @@ class Worker(threading.Thread):
     # Worker helper functions
     #
     def __del__(self):
-        if self.job.stopBefore == "": # We don't want to cleanup the VM if we are stopping early for debugging 
-            assert self.cleanupStatus, "Worker must call detachVM before returning"
+        assert self.cleanupStatus, "Worker must call detachVM before returning"
     
     
     def detachVM(self, detachMethod: DetachMethod):
