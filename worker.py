@@ -246,7 +246,7 @@ class Worker(threading.Thread):
             self.log.debug("Waiting for VM")
             if self.job.stopBefore == "waitvm":
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.job.vm.keep_for_debugging = True
+                self.job.setKeepForDebugging(True)
                 self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
@@ -281,11 +281,11 @@ class Worker(threading.Thread):
                     self.job.id,
                 )
             )
-
             if (self.job.stopBefore == "copyin"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.job.vm.keep_for_debugging = True
+                self.job.setKeepForDebugging(True)
                 self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
+                self.log.debug(msg)
                 return
             # Copy input files to VM
             self.log.debug(f"Before copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
@@ -296,7 +296,7 @@ class Worker(threading.Thread):
                 Config.copyin_errors += 1
                 msg = "Copy in to VM failed (status=%d)" % (ret["copyin"])
                 self.job.vm.notes = str(self.job.id) + "_" + self.job.name
-                self.job.vm.keep_for_debugging = True
+                self.job.setKeepForDebugging(True)
                 self.log.debug(msg)
                 self.rescheduleJob(
                     hdrfile,
@@ -316,7 +316,7 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "runjob"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.job.vm.keep_for_debugging = True
+                self.job.setKeepForDebugging(True)
                 self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             # Run the job on the virtual machine
@@ -339,7 +339,7 @@ class Worker(threading.Thread):
                     msg = "RunJob: OS error while running job on VM"
                     # TODO: do we need to not reschedule the job?
                     self.job.vm.notes = str(self.job.id) + "_" + self.job.name
-                    self.job.vm.keep_for_debugging = True
+                    self.job.setKeepForDebugging(True)
                 elif ret["runjob"] == -1:
                     Config.runjob_timeouts += 1
                     # TODO: difference between 2 and -1?
@@ -366,7 +366,7 @@ class Worker(threading.Thread):
 
             if (self.job.stopBefore == "copyout"):
                 msg = "Execution stopped before %s" % self.job.stopBefore
-                self.job.vm.keep_for_debugging = True
+                self.job.setKeepForDebugging(True)
                 self.afterJobExecution(hdrfile, msg, detachMethod=DetachMethod.DESTROY_AND_REPLACE)
                 return
             # Copy the output back.
@@ -417,7 +417,7 @@ class Worker(threading.Thread):
             #         msg = "Error: OS error while running job on VM"
             #         detachMethod = DetachMethod.DESTROY_WITHOUT_REPLACEMENT
             #         self.job.vm.notes = str(self.job.id) + "_" + self.job.name
-            #         self.job.vm.keep_for_debugging = True
+            #         self.job.setKeepForDebugging(True)
             #     else:  # This should never happen
             #         msg = "Error: Unknown autodriver error (status=%d)" % (
             #             ret["runjob"]

@@ -124,7 +124,7 @@ class TangoJob(object):
         self._accessKeyId = accessKeyId
         self._accessKey = accessKey
         self._disableNetwork = disableNetwork
-        self._stopBefore = "stopBefore"
+        self._stopBefore = stopBefore
 
     def __repr__(self):
         self.syncRemote()
@@ -255,6 +255,11 @@ class TangoJob(object):
     def setTimeout(self, new_timeout):
         self.syncRemote()
         self._timeout = new_timeout
+        self.updateRemote()
+
+    def setKeepForDebugging(self, keep_for_debugging: bool):
+        self.syncRemote()
+        self._vm.keep_for_debugging = keep_for_debugging
         self.updateRemote()
 
     # Private method
