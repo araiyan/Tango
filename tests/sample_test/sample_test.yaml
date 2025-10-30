@@ -1,0 +1,11 @@
+num_submissions: 5
+submission_delay: 0.1
+autograder_image: ec2_213_llvm_14_s25
+output_file: log.txt
+tango_port: 3001
+cli_path: /home/snarita/Autolab/Tango/clients/tango-cli.py
+instance_type: t2.micro
+timeout: 180
+ec2: True
+expected_output: expected_output.txt
+stop_before:

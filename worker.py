@@ -49,7 +49,7 @@ class Worker(threading.Thread):
         this function before returning.
         """
         # job-owned instance, simply destroy after job is completed
-        if self.job.vm.ec2_vmms:
+        if Config.VMMS_NAME == "ec2SSH":
             self.vmms.safeDestroyVM(self.job.vm)
         elif return_vm:
             self.preallocator.freeVM(self.job.vm)
@@ -254,6 +254,12 @@ class Worker(threading.Thread):
                 )
             )
             self.log.debug("Waiting for VM")
+            if self.job.stopBefore == "waitvm":
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, returnVM)
+                return
             ret["waitvm"] = self.vmms.waitVM(vm, Config.WAITVM_TIMEOUT)
 
             self.log.debug("Waited for VM")
@@ -287,8 +293,17 @@ class Worker(threading.Thread):
                 )
             )
 
+            if (self.job.stopBefore == "copyin"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, returnVM)
+                return
             # Copy input files to VM
-            ret["copyin"] = self.vmms.copyIn(vm, self.job.input)
+            self.log.debug(f"Before copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
+            ret["copyin"] = self.vmms.copyIn(vm, self.job.input, self.job.id)
+            self.log.debug(f"After copyIn: ret[copyin] = {ret['copyin']}, job_id: {str(self.job.id)}")
+
             if ret["copyin"] != 0:
                 Config.copyin_errors += 1
                 msg = "Error: Copy in to VM failed (status=%d)" % (ret["copyin"])
@@ -306,6 +321,12 @@ class Worker(threading.Thread):
                 % (datetime.now().ctime(), self.job.name, self.job.id, ret["copyin"])
             )
 
+            if (self.job.stopBefore == "runjob"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, returnVM)
+                return
             # Run the job on the virtual machine
             ret["runjob"] = self.vmms.runJob(
                 vm,
@@ -326,6 +347,12 @@ class Worker(threading.Thread):
                 % (datetime.now().ctime(), self.job.name, self.job.id, ret["runjob"])
             )
 
+            if (self.job.stopBefore == "copyout"):
+                msg = "Execution stopped before %s" % self.job.stopBefore
+                returnVM = True
+                self.job.vm.keep_for_debugging = True
+                self.afterJobExecution(hdrfile, msg, returnVM)
+                return
             # Copy the output back.
             ret["copyout"] = self.vmms.copyOut(vm, self.job.outputFile)
             if ret["copyout"] != 0:

@@ -164,9 +164,11 @@ class TangoREST(object):
             )
             input.append(handinfile)
 
-        ec2_vmms = False
-        if "ec2Vmms" in jobObj:
-            ec2_vmms = True
+        ec2_vmms = Config.VMMS_NAME == "ec2SSH"
+
+        stopBefore = ""
+        if "stopBefore" in jobObj:
+            stopBefore = jobObj["stopBefore"]
 
         instance_type = None
         if "instanceType" in jobObj and len(jobObj["instanceType"]) > 0:
@@ -198,6 +200,7 @@ class TangoREST(object):
             accessKey=accessKey,
             accessKeyId=accessKeyId,
             disableNetwork=disableNetwork,
+            stopBefore=stopBefore
         )
 
         self.log.debug("inputFiles: %s" % [file.localFile for file in input])

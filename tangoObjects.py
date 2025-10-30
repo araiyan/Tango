@@ -100,6 +100,7 @@ class TangoJob(object):
         accessKeyId=None,
         accessKey=None,
         disableNetwork=None,
+        stopBefore="",
     ):
         self.assigned = False
         self.retries = 0
@@ -120,6 +121,7 @@ class TangoJob(object):
         self.accessKeyId = accessKeyId
         self.accessKey = accessKey
         self.disableNetwork = disableNetwork
+        self.stopBefore = "stopBefore"
 
     def __repr__(self):
         self.syncRemote()
@@ -317,6 +319,9 @@ class TangoRemoteQueue(object):
         return self.__db.lrem(self.key, 0, pickled_item)
 
     def _clean(self):
+        self.__db.delete(self.key)
+
+    def make_empty(self):
         self.__db.delete(self.key)
 
 

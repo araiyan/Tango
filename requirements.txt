@@ -9,3 +9,4 @@ urllib3==1.26.19
 docker==5.0.3
 backoff==2.2.1
 pytz
+pyyaml
