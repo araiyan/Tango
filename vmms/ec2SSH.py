@@ -22,9 +22,9 @@ from botocore.exceptions import ClientError
 
 import config
 from tangoObjects import TangoMachine
-from typing import Optional, Literal, List, Sequence
+from typing import Optional, Literal, List, Dict, Sequence
 from mypy_boto3_ec2 import EC2ServiceResource
-from mypy_boto3_ec2.service_resource import Instance
+from mypy_boto3_ec2.service_resource import Instance, Image
 from mypy_boto3_ec2.type_defs import FilterTypeDef
 
 from vmms.interface import VMMSInterface
@@ -170,7 +170,7 @@ class Ec2SSH(VMMSInterface):
         Ec2SSH._vm_semaphore.release()
 
     # TODO: the arguments accessKeyId and accessKey don't do anything
-    def __init__(self, accessKeyId=None, accessKey=None):
+    def __init__(self, accessKeyId: Optional[str] = None, accessKey: Optional[str] = None) -> None:
         """log - logger for the instance
         connection - EC2Connection object that stores the connection
         info to the EC2 network
@@ -203,8 +203,8 @@ class Ec2SSH(VMMSInterface):
             # self.createKeyPair()
         # create boto3resource
 
-        self.img2ami = {} # this is a bad name, should really be img_name to img
-        self.images = []
+        self.img2ami: Dict[str, Image] = {} # this is a bad name, should really be img_name to img
+        self.images: List[Image] = []
         try:
             # This is a service resource
             self.boto3resource: EC2ServiceResource = boto3.resource("ec2", config.Config.EC2_REGION) # TODO: rename this ot self.ec2resource

@@ -439,6 +439,6 @@ class Worker(threading.Thread):
             # if vm is not set but self.preVM is set, we still need
             # to return the VM, but have to initialize self.job.vm first
             if self.preVM and not vm:
-                vm = self.job.vm = self.preVM
+                vm = self.job.vm = self.preVM 
             if vm:
                 self.detachVM(DetachMethod.DESTROY_AND_REPLACE)

@@ -264,9 +264,10 @@ class TangoJob(object):
         self.updateRemote()
 
     def setKeepForDebugging(self, keep_for_debugging: bool):
-        self.syncRemote()
-        self._vm.keep_for_debugging = keep_for_debugging
-        self.updateRemote()
+        if (self._vm is not None):
+            self.syncRemote()
+            self._vm.keep_for_debugging = keep_for_debugging
+            self.updateRemote()
 
     # Private method
     def __updateSelf(self, other_job):
@@ -283,7 +284,7 @@ class TangoJob(object):
         self._id = other_job._id
 
 
-    def syncRemote(self):
+    def syncRemote(self) -> None:
         if Config.USE_REDIS and self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
@@ -294,7 +295,7 @@ class TangoJob(object):
                 return
             self.__updateSelf(temp_job)
 
-    def updateRemote(self):
+    def updateRemote(self) -> None:
         if Config.USE_REDIS and self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
