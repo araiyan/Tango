@@ -187,7 +187,7 @@ class DistDocker(object):
             # Sleep a bit before trying again
             time.sleep(config.Config.TIMER_POLL_INTERVAL)
 
-    def copyIn(self, vm, inputFiles):
+    def copyIn(self, vm, inputFiles, job_id=None):
         """copyIn - Create a directory to be mounted as a volume
         for the docker containers on the host machine for this VM.
         Copy input files to this directory on the host machine.

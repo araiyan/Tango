@@ -360,9 +360,10 @@ class TangoNativeIntValue(object):
         return val
     
 
-class TangoQueue(Protocol):
+QueueElem = TypeVar('QueueElem')
+class TangoQueue(Protocol[QueueElem]):
     @staticmethod
-    def create(key_name: str) -> TangoQueue:
+    def create(key_name: str) -> TangoQueue[QueueElem]:
         if Config.USE_REDIS:
             return TangoRemoteQueue(key_name)
         else:
@@ -373,20 +374,20 @@ class TangoQueue(Protocol):
         ...
     def empty(self) -> bool:
         ...
-    def put(self, item) -> None:
+    def put(self, item: QueueElem) -> None:
         ...
-    def get(self, block=True, timeout=None) -> Optional[T]:
+    def get(self, block=True, timeout=None) -> Optional[QueueElem]:
         ...
-    def get_nowait(self) -> Optional[T]:
+    def get_nowait(self) -> Optional[QueueElem]:
         ...
-    def remove(self, item) -> None:
+    def remove(self, item: QueueElem) -> None:
         ...
     def _clean(self) -> None:
         ...
     def make_empty(self) -> None:
         ...
 
-class ExtendedQueue(Queue, TangoQueue):
+class ExtendedQueue(Queue, TangoQueue[QueueElem]):
     """Python Thread safe Queue with the remove and clean function added"""
 
     def test(self):

@@ -254,7 +254,7 @@ class TashiSSH(object):
             # Sleep a bit before trying again
             time.sleep(config.Config.TIMER_POLL_INTERVAL)
 
-    def copyIn(self, vm, inputFiles):
+    def copyIn(self, vm, inputFiles, job_id=None):
         """copyIn - Copy input files to VM"""
         domain_name = self.domainName(vm.id, vm.name)
         self.log.debug("Creating autolab directory on VM")
@@ -292,7 +292,7 @@ class TashiSSH(object):
                 return ret
         return 0
 
-    def runJob(self, vm, runTimeout, maxOutputFileSize):
+    def runJob(self, vm, runTimeout, maxOutputFileSize, disableNetwork):
         """runJob - Run the make command on a VM using SSH and
         redirect output to file "output".
         """

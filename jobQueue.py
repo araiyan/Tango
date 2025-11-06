@@ -14,6 +14,7 @@ import time
 from datetime import datetime
 from tangoObjects import TangoDictionary, TangoJob, TangoQueue
 from config import Config
+from preallocator import Preallocator
 
 #
 # JobQueue - This class defines the job queue and the functions for
@@ -31,7 +32,7 @@ from config import Config
 
 
 class JobQueue(object):
-    def __init__(self, preallocator):
+    def __init__(self, preallocator: Preallocator) -> None:
         """
         Here we maintain several data structures used to keep track of the
         jobs present for the autograder.
@@ -55,9 +56,9 @@ class JobQueue(object):
         """
         self.liveJobs: TangoDictionary[TangoJob] = TangoDictionary.create("liveJobs")
         self.deadJobs: TangoDictionary[TangoJob] = TangoDictionary.create("deadJobs") # Servees as a record of both failed and completed jobs
-        self.unassignedJobs = TangoQueue.create("unassignedLiveJobs")
+        self.unassignedJobs: TangoQueue[int] = TangoQueue.create("unassignedLiveJobs")
         self.queueLock = threading.Lock()
-        self.preallocator = preallocator
+        self.preallocator: Preallocator = preallocator
         self.log = logging.getLogger("JobQueue")
         self.nextID = 1
 
@@ -357,6 +358,7 @@ class JobQueue(object):
         """
         # Blocks till the next item is added
         id = self.unassignedJobs.get()
+        assert id is not None, ".get with default arguments should block and never return None"
 
         self.log.debug("_getNextPendingJob|Acquiring lock to job queue.")
         self.queueLock.acquire()
@@ -366,7 +368,6 @@ class JobQueue(object):
         job = self.liveJobs.get(id)
         if job is None:
             raise Exception("Cannot find unassigned job in live jobs")
-
         self.log.debug("getNextPendingJob| Releasing lock to job queue.")
         self.queueLock.release()
         self.log.debug("getNextPendingJob| Released lock to job queue.")

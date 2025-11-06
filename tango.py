@@ -48,16 +48,17 @@ from preallocator import Preallocator
 from jobQueue import JobQueue
 from tangoObjects import TangoJob
 from config import Config
+from vmms.interface import VMMSInterface
 
 
 class TangoServer(object):
 
     """TangoServer - Implements the API functions that the server accepts"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.daemon = True
 
-        vmms = None
+        vmms: VMMSInterface
         if Config.VMMS_NAME == "tashiSSH":
             from vmms.tashiSSH import TashiSSH
 
