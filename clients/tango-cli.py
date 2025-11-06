@@ -274,7 +274,6 @@ def tango_upload():
 
 def tango_addJob():
     try:
-        requestObj = {}
         res = checkKey() + checkCourselab() + checkInfiles()
         if res != 0:
             raise Exception("Invalid usage: [addJob] " + addJob_help)

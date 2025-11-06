@@ -16,6 +16,8 @@ from datetime import datetime
 from config import Config
 from jobQueue import JobQueue
 from tangoObjects import TangoMachine
+from typing import Dict, Optional
+from vmms.interface import VMMSInterface
 #
 # Worker - The worker class is very simple and very dumb. The goal is
 # to walk through the VMMS interface, track the job's progress, and if
@@ -39,7 +41,7 @@ class Worker(threading.Thread):
         threading.Thread.__init__(self)
         self.daemon = True
         self.job = job
-        self.vmms = vmms
+        self.vmms: VMMSInterface = vmms
         self.jobQueue : JobQueue = jobQueue
         self.preallocator = preallocator
         self.preVM = preVM
@@ -154,7 +156,7 @@ class Worker(threading.Thread):
                 self.log.debug("Sending request to %s" % job.notifyURL)
                 with requests.session() as s:
                     # urllib3 retry, allow POST to be retried, use backoffs
-                    r = Retry(total=10, allowed_methods=False, backoff_factor=1)
+                    r = Retry(total=10, allowed_methods=None, backoff_factor=1)
                     s.mount("http://", HTTPAdapter(max_retries=r))
                     s.mount("https://", HTTPAdapter(max_retries=r))
                     response = s.post(
@@ -190,13 +192,7 @@ class Worker(threading.Thread):
         """run - Step a job through its execution sequence"""
         try:
             # Hash of return codes for each step
-            ret = {}
-            ret["waitvm"] = None
-            ret["initializevm"] = None
-            ret["copyin"] = None
-            ret["runjob"] = None
-            ret["copyout"] = None
-            print("HELLO")
+            ret: Dict[str, int] = {}
             self.log.debug("Run worker")
             vm = None
 

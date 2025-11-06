@@ -21,6 +21,7 @@ import tempfile
 import socket
 import config
 from tangoObjects import TangoMachine
+from vmms.interface import VMMSInterface
 
 
 def timeout(command, time_out=1):
@@ -75,7 +76,7 @@ def timeoutWithReturnStatus(command, time_out, returnValue=0):
     return ret
 
 
-class DistDocker(object):
+class DistDocker(VMMSInterface):
 
     _SSH_FLAGS = ["-q", "-o", "BatchMode=yes"]
     _SSH_AUTH_FLAGS = [

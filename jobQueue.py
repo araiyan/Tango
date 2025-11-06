@@ -12,10 +12,10 @@ import logging
 import time
 
 from datetime import datetime
-from tangoObjects import TangoDictionary, TangoJob, TangoQueue
+from tangoObjects import TangoDictionary, TangoJob, TangoQueue, TangoMachine
 from config import Config
 from preallocator import Preallocator
-
+from typing import Optional
 #
 # JobQueue - This class defines the job queue and the functions for
 # manipulating it. The actual queue is made up of two smaller
@@ -251,7 +251,7 @@ class JobQueue(object):
     # TODO: this function is a little weird. It sets the state of job to be "assigned", but not to which worker. 
     # TODO: It does assign the job to a particular VM though.
     # Precondition: jobId is in self.liveJobs
-    def assignJob(self, jobId, vm=None) -> None:
+    def assignJob(self, jobId, vm=None):
         """assignJob - marks a job to be assigned"""
         self.queueLock.acquire()
         self.log.debug("assignJob| Acquired lock to job queue.")
@@ -274,7 +274,7 @@ class JobQueue(object):
         # return job
 
     # TODO: Rename this job to be more accurate in its description
-    def unassignJob(self, jobId):
+    def unassignJob(self, jobId: int) -> None:
         """unassignJob - marks a job to be unassigned
         Note: We assume here that a job is to be rescheduled or
         'retried' when you unassign it. This retry is done by
@@ -284,7 +284,7 @@ class JobQueue(object):
         self.log.debug("unassignJob| Acquired lock to job queue.")
 
         # Get the current job
-        job = self.liveJobs.get(jobId)
+        job = self.liveJobs.getExn(jobId)
 
         # Increment the number of retires
         if job.retries is None:

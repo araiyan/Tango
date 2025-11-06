@@ -9,7 +9,7 @@ import copy
 from tangoObjects import TangoDictionary, TangoQueue, TangoIntValue, TangoMachine
 from config import Config
 from typing import Tuple, List
-
+from vmms.interface import VMMSInterface
 #
 # Preallocator - This class maintains a pool of active VMs for future
 # job requests.  The pool is stored in dictionary called
@@ -22,11 +22,11 @@ from typing import Tuple, List
 
 
 class Preallocator(object):
-    def __init__(self, vmms):
-        self.machines: TangoDictionary[Tuple[List[TangoMachine], TangoQueue]] = TangoDictionary.create("machines")
+    def __init__(self, vmms: VMMSInterface) -> None:
+        self.machines: TangoDictionary[Tuple[List[TangoMachine], TangoQueue[TangoMachine]]] = TangoDictionary.create("machines")
         self.lock = threading.Lock()
         self.nextID = TangoIntValue("nextID", 1000)
-        self.vmms = vmms
+        self.vmms: VMMSInterface = vmms
         self.log = logging.getLogger("Preallocator")
 
     def poolSize(self, vmName):

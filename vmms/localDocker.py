@@ -13,11 +13,11 @@ import sys
 import shutil
 import config
 from tangoObjects import TangoMachine
-
+from typing import List
 from vmms.interface import VMMSInterface
 
 
-def timeout(command, time_out=1):
+def timeout(command: List[str], time_out: float = 1) -> int:
     """timeout - Run a unix command with a timeout. Return -1 on
     timeout, otherwise return the return value from the command, which
     is typically 0 for success, 1-255 for failure.
@@ -35,6 +35,7 @@ def timeout(command, time_out=1):
         t += config.Config.TIMER_POLL_INTERVAL
 
     # Determine why the while loop terminated
+    returncode: int
     if p.poll() is None:
         try:
             os.kill(p.pid, 9)
@@ -42,7 +43,9 @@ def timeout(command, time_out=1):
             pass
         returncode = -1
     else:
-        returncode = p.poll()
+        poll_result = p.poll()
+        assert poll_result is not None
+        returncode = poll_result
     return returncode
 
 

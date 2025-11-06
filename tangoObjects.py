@@ -93,7 +93,7 @@ class TangoJob(object):
 
     def __init__(
         self,
-        vm: Optional[TangoMachine] = None,
+        vm: TangoMachine,
         outputFile=None,
         name=None,
         input=None,
@@ -108,7 +108,7 @@ class TangoJob(object):
         self._assigned = False
         self._retries: int = 0
 
-        self._vm = vm
+        self._vm: TangoMachine = vm
         if input is None:
             self._input = []
         else:
@@ -229,7 +229,7 @@ class TangoJob(object):
         self._retries += 1
         self.updateRemote()
 
-    def makeVM(self, vm):
+    def makeVM(self, vm: TangoMachine) -> None:
         self.syncRemote()
         self._vm = vm
         self.updateRemote()
