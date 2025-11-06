@@ -7,7 +7,7 @@ from config import Config
 from queue import Queue
 import pickle
 import redis
-from typing import Optional, Protocol, TypeVar
+from typing import Optional, Protocol, TypeVar, Union
 from abc import abstractmethod
 
 redisConnection = None
@@ -125,10 +125,11 @@ class TangoJob(object):
         self._accessKey = accessKey
         self._disableNetwork = disableNetwork
         self._stopBefore = "stopBefore"
+        self._id: Optional[int] = None # uninitialized until it gets added to either the live or dead queue
 
     def __repr__(self):
         self.syncRemote()
-        return f"ID: {self.id} - Name: {self.name}"
+        return f"ID: {self._id} - Name: {self.name}"
     
     # TODO: reduce code size/duplication by setting TangoJob as a dataclass
     # Getters for private variables
@@ -207,6 +208,11 @@ class TangoJob(object):
         self.syncRemote()
         return self._stopBefore
     
+    @property
+    def id(self) -> int:
+        self.syncRemote()
+        assert self._id is not None, "Job ID is not set, add it to the job queue first"
+        return self._id
 
     def makeAssigned(self):
         self.syncRemote()
@@ -242,8 +248,8 @@ class TangoJob(object):
         self._trace.append(trace_str)
         self.updateRemote()
 
-    def setId(self, new_id):
-        self.id = new_id
+    def setId(self, new_id: int) -> None:
+        self._id = new_id
         if self._remoteLocation is not None:
             dict_hash = self._remoteLocation.split(":")[0]
             key = self._remoteLocation.split(":")[1]
@@ -269,6 +275,7 @@ class TangoJob(object):
         self._timeout = other_job._timeout
         self._trace = other_job._trace
         self._maxOutputFileSize = other_job._maxOutputFileSize
+        self._id = other_job._id
 
 
     def syncRemote(self):
@@ -290,14 +297,16 @@ class TangoJob(object):
             dictionary.set(key, self)
             
     def deleteFromDict(self, dictionary : TangoDictionary) -> None:
-        dictionary.delete(self.id)
+        assert self._id is not None
+        dictionary.delete(self._id)
         self._remoteLocation = None
         
     def addToDict(self, dictionary : TangoDictionary) -> None:
-        dictionary.set(self.id, self)
+        assert self._id is not None
+        dictionary.set(self._id, self)
         assert self._remoteLocation is None, "Job already has a remote location"
         if Config.USE_REDIS:
-            self._remoteLocation = dictionary.hash_name + ":" + str(self.id)
+            self._remoteLocation = dictionary.hash_name + ":" + str(self._id)
             self.updateRemote()
         
 
@@ -460,6 +469,7 @@ class TangoRemoteQueue(TangoQueue):
         self.__db.delete(self.key)
 
 T = TypeVar('T')
+KeyType = Union[str, int]
 # Dictionary from string to T
 class TangoDictionary(Protocol[T]):
 
@@ -476,16 +486,16 @@ class TangoDictionary(Protocol[T]):
         ...
         
     @abstractmethod
-    def __contains__(self, id: str) -> bool:
+    def __contains__(self, id: KeyType) -> bool:
         ...
     @abstractmethod
-    def set(self, id: str, obj: T) -> str:
+    def set(self, id: KeyType, obj: T) -> str:
         ...
     @abstractmethod
-    def get(self, id: str) -> Optional[T]:
+    def get(self, id: KeyType) -> Optional[T]:
         ...
     @abstractmethod
-    def getExn(self, id: str) -> T:
+    def getExn(self, id: KeyType) -> T:
         ...
     @abstractmethod
     def keys(self) -> list[str]:
@@ -494,7 +504,7 @@ class TangoDictionary(Protocol[T]):
     def values(self) -> list[T]:
         ...
     @abstractmethod
-    def delete(self, id: str) -> None:
+    def delete(self, id: KeyType) -> None:
         ...
     @abstractmethod
     def _clean(self) -> None:

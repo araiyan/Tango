@@ -54,7 +54,7 @@ class JobQueue(object):
         using the makeUnassigned api.
         """
         self.liveJobs: TangoDictionary[TangoJob] = TangoDictionary.create("liveJobs")
-        self.deadJobs: TangoDictionary[TangoJob] = TangoDictionary.create("deadJobs")
+        self.deadJobs: TangoDictionary[TangoJob] = TangoDictionary.create("deadJobs") # Servees as a record of both failed and completed jobs
         self.unassignedJobs = TangoQueue.create("unassignedLiveJobs")
         self.queueLock = threading.Lock()
         self.preallocator = preallocator
@@ -168,7 +168,8 @@ class JobQueue(object):
 
         return str(job.id)
 
-    def addDead(self, job):
+    # TODO: get rid of this return value, it is not used anywhere 
+    def addDead(self, job) -> int: 
         """addDead - add a job to the dead queue.
         Called by validateJob when a job validation fails.
         Returns -1 on failure and the job id on success
