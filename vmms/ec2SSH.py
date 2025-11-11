@@ -260,7 +260,7 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
     def createSecurityGroup(self):
         try:
             # Check if the security group already exists
-            response = self.boto3client.describe_security_groups(
+            description_response = self.boto3client.describe_security_groups(
                 Filters=[
                     {
                         "Name": "group-name",
@@ -268,18 +268,18 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
                     }
                 ]
             )
-            if response["SecurityGroups"]:
-                security_group_id = response["SecurityGroups"][0]["GroupId"]
+            if description_response["SecurityGroups"]:
+                security_group_id = description_response["SecurityGroups"][0]["GroupId"]
                 return
         except Exception as e:
             self.log.debug("ERROR checking for existing security group: %s", e)
 
         try:
-            response = self.boto3resource.create_security_group(
+            security_group_response = self.boto3resource.create_security_group(
                 GroupName=config.Config.DEFAULT_SECURITY_GROUP,
                 Description="Autolab security group - allowing all traffic",
             )
-            security_group_id = response["GroupId"]
+            security_group_id = security_group_response["GroupId"]
             self.boto3resource.authorize_security_group_ingress(
                 GroupId=security_group_id
             )
@@ -619,9 +619,10 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
 
             except subprocess.CalledProcessError as xxx_todo_changeme:
                 # Error copying out the timing data (probably runJob failed)
-                re.error = xxx_todo_changeme
+                # re.error = xxx_todo_changeme
                 # Error copying out the timing data (probably runJob failed)
                 pass
+                
 
         return VMMSUtils.timeout(
             ["scp"]
@@ -689,7 +690,7 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
         """
         try:
             vms = list()
-            filters = [
+            filters: Sequence[FilterTypeDef] = [
                 {
                     "Name": "instance-state-name",
                     "Values": ["running", "pending"],
@@ -741,7 +742,7 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
     def existsVM(self, vm):
         """existsVM - Checks whether a VM exists in the vmms."""
         # https://boto3.amazonaws.com/v1/documentation/api/latest/guide/migrationec2.html
-        filters = [{"Name": "instance-state-name", "Values": ["running"]}]
+        filters: Sequence[FilterTypeDef] = [{"Name": "instance-state-name", "Values": ["running"]}]
         # gets all running instances
         instances = self.boto3resource.instances.filter(Filters=filters)
         for instance in instances:

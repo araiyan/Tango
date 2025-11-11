@@ -355,15 +355,6 @@ class TangoServer(object):
                 )
                 errors += 1
 
-        # Check for max output file size parameter
-        if not job.maxOutputFileSize:
-            self.log.debug(
-                "validateJob: Setting job.maxOutputFileSize "
-                "to default value: %d bytes",
-                Config.MAX_OUTPUT_FILE_SIZE,
-            )
-            job.maxOutputFileSize = Config.MAX_OUTPUT_FILE_SIZE
-
         # Check the list of input files
         hasMakefile = False
         for inputFile in job.input:
