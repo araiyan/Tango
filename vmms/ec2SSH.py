@@ -28,42 +28,13 @@ from mypy_boto3_ec2.service_resource import Instance, Image
 from mypy_boto3_ec2.type_defs import FilterTypeDef
 
 from vmms.interface import VMMSInterface
-
+from vmms.sharedUtils import VMMSUtils
 
 # suppress most boto logging
 logging.getLogger("boto3").setLevel(logging.CRITICAL)
 logging.getLogger("botocore").setLevel(logging.CRITICAL)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.CRITICAL)
 
-
-def timeout(command, time_out=1):
-    """timeout - Run a unix command with a timeout. Return -1 on
-    timeout, otherwise return the return value from the command, which
-    is typically 0 for success, 1-255 for failure.
-    """
-
-    # Launch the command
-    p = subprocess.Popen(
-        command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
-    )
-
-    # Wait for the command to complete
-    t = 0.0
-    while t < time_out and p.poll() is None:
-        time.sleep(config.Config.TIMER_POLL_INTERVAL)
-        t += config.Config.TIMER_POLL_INTERVAL
-    if t >= time_out:
-        print("ERROR: timeout trying ", command)
-    # Determine why the while loop terminated
-    if p.poll() is None:
-        try:
-            os.kill(p.pid, 9)
-        except OSError:
-            pass
-        returncode = -1
-    else:
-        returncode = p.poll()
-    return returncode
 
 
 def timeout_with_retries(command, time_out=1, retries=3, retry_delay=2):
@@ -108,29 +79,6 @@ def timeout_with_retries(command, time_out=1, retries=3, retry_delay=2):
             return returncode
 
 
-def timeoutWithReturnStatus(command, time_out, returnValue=0):
-    """timeoutWithReturnStatus - Run a Unix command with a timeout,
-    until the expected value is returned by the command; On timeout,
-    return last error code obtained from the command.
-    """
-    p = subprocess.Popen(
-        command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
-    )
-    t = 0.0
-    while t < time_out:
-        ret = p.poll()
-        if ret is None:
-            time.sleep(config.Config.TIMER_POLL_INTERVAL)
-            t += config.Config.TIMER_POLL_INTERVAL
-        elif ret == returnValue:
-            return ret
-        else:
-            p = subprocess.Popen(
-                command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
-            )
-            return ret
-
-
 @backoff.on_exception(backoff.expo, ClientError, max_tries=3, jitter=None)
 def try_load_instance(newInstance):
     newInstance.load()
@@ -146,7 +94,7 @@ class ec2CallError(Exception):
     pass
 
 
-class Ec2SSH(VMMSInterface):
+class Ec2SSH(VMMSInterface, VMMSUtils):
     _SSH_FLAGS = [
         "-i",
         config.Config.SECURITY_KEY_PATH,
@@ -517,7 +465,7 @@ class Ec2SSH(VMMSInterface):
             # If the call to ssh returns timeout (-1) or ssh error
             # (255), then success. Otherwise, keep trying until we run
             # out of time.
-            ret = timeout(
+            ret = VMMSUtils.timeout(
                 ["ssh"]
                 + self.ssh_flags
                 + ["%s@%s" % (self.ec2User, domain_name), "(:)"],

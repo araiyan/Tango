@@ -23,6 +23,7 @@ from jobQueue import JobQueue
 from tangoObjects import TangoJob, TangoQueue, TangoMachine
 from typing import List, Tuple
 from worker import Worker
+from vmms.interface import VMMSInterface
 
 
 
@@ -73,6 +74,7 @@ class JobManager(object):
                     # Sleep for a bit and then check again
                     time.sleep(Config.DISPATCH_PERIOD)
 
+            vmms: VMMSInterface
             try:
                 # if the job is a ec2 vmms job
                 # spin up an ec2 instance for that job

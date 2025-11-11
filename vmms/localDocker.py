@@ -15,61 +15,8 @@ import config
 from tangoObjects import TangoMachine
 from typing import List
 from vmms.interface import VMMSInterface
+from vmms.sharedUtils import VMMSUtils
 
-
-def timeout(command: List[str], time_out: float = 1) -> int:
-    """timeout - Run a unix command with a timeout. Return -1 on
-    timeout, otherwise return the return value from the command, which
-    is typically 0 for success, 1-255 for failure.
-    """
-
-    # Launch the command
-    p = subprocess.Popen(
-        command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
-    )
-
-    # Wait for the command to complete
-    t = 0.0
-    while t < time_out and p.poll() is None:
-        time.sleep(config.Config.TIMER_POLL_INTERVAL)
-        t += config.Config.TIMER_POLL_INTERVAL
-
-    # Determine why the while loop terminated
-    returncode: int
-    if p.poll() is None:
-        try:
-            os.kill(p.pid, 9)
-        except OSError:
-            pass
-        returncode = -1
-    else:
-        poll_result = p.poll()
-        assert poll_result is not None
-        returncode = poll_result
-    return returncode
-
-
-def timeoutWithReturnStatus(command, time_out, returnValue=0):
-    """timeoutWithReturnStatus - Run a Unix command with a timeout,
-    until the expected value is returned by the command; On timeout,
-    return last error code obtained from the command.
-    """
-    p = subprocess.Popen(
-        command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
-    )
-    t = 0.0
-    while t < time_out:
-        ret = p.poll()
-        if ret is None:
-            time.sleep(config.Config.TIMER_POLL_INTERVAL)
-            t += config.Config.TIMER_POLL_INTERVAL
-        elif ret == returnValue:
-            return ret
-        else:
-            p = subprocess.Popen(
-                command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
-            )
-    return ret
 
 
 #
@@ -77,7 +24,7 @@ def timeoutWithReturnStatus(command, time_out, returnValue=0):
 #
 
 
-class LocalDocker(VMMSInterface):
+class LocalDocker(VMMSInterface, VMMSUtils):
     def __init__(self):
         """Checks if the machine is ready to run docker containers.
         Initialize boot2docker if running on OS X.
@@ -188,7 +135,7 @@ class LocalDocker(VMMSInterface):
         ]
 
         self.log.debug("Running job: %s" % str(args))
-        ret = timeout(args, runTimeout * 2)
+        ret = VMMSUtils.timeout(args, runTimeout * 2)
         self.log.debug("runJob returning %d" % ret)
 
         return ret
@@ -212,7 +159,7 @@ class LocalDocker(VMMSInterface):
         volumePath = self.getVolumePath("")
         # Do a hard kill on corresponding docker container.
         # Return status does not matter.
-        timeout(["docker", "rm", "-f", instanceName], config.Config.DOCKER_RM_TIMEOUT)
+        VMMSUtils.timeout(["docker", "rm", "-f", instanceName], config.Config.DOCKER_RM_TIMEOUT)
         # Destroy corresponding volume if it exists.
         if instanceName in os.listdir(volumePath):
             shutil.rmtree(volumePath + instanceName)
@@ -254,7 +201,7 @@ class LocalDocker(VMMSInterface):
         a non-zero status upon not finding a container.
         """
         instanceName = self.instanceName(vm.id, vm.name)
-        ret = timeout(["docker", "inspect", instanceName])
+        ret = VMMSUtils.timeout(["docker", "inspect", instanceName])
         return ret == 0
 
     def getImages(self):

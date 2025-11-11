@@ -40,3 +40,6 @@ class VMMSInterface(Protocol):
     def existsVM(self, vm: TangoMachine) -> bool:
         ...
 
+    @abstractmethod
+    def instanceName(self, id: int, name: str) -> str:
+        ...
