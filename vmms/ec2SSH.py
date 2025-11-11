@@ -37,12 +37,12 @@ logging.getLogger("urllib3.connectionpool").setLevel(logging.CRITICAL)
 
 
 
-def timeout_with_retries(command, time_out=1, retries=3, retry_delay=2):
+def timeout_with_retries(command, time_out=1, retries=3, retry_delay=2) -> int:
     """timeout - Run a unix command with a timeout. Return -1 on
     timeout, otherwise return the return value from the command, which
     is typically 0 for success, 1-255 for failure.
     """
-    for attempt in range(retries + 1):
+    for _ in range(retries + 1):
         # Launch the command
         p = subprocess.Popen(
             command, stdout=open("/dev/null", "w"), stderr=subprocess.STDOUT
@@ -57,26 +57,24 @@ def timeout_with_retries(command, time_out=1, retries=3, retry_delay=2):
             print("ERROR: timeout trying ", command)
 
         # Determine why the while loop terminated
-        if p.poll() is None:
+        poll_result: Optional[int] = p.poll()
+        if poll_result is None:
             try:
                 os.kill(p.pid, 9)
             except OSError:
                 pass
             returncode = -1
         else:
-            returncode = p.poll()
+            returncode = poll_result
 
         # try to retry the command on a timeout
         if returncode == -1:
-            if attempt < retries:
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                # attempt == retries -> failure
-                print("All retries exhausted.")
-                return -1
+            print(f"Retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
         else:
             return returncode
+    print("All retries exhausted.")
+    return -1
 
 
 @backoff.on_exception(backoff.expo, ClientError, max_tries=3, jitter=None)
@@ -566,7 +564,7 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
         )
         # no logging for now
 
-        ret = timeout(
+        ret = VMMSUtils.timeout(
             ["ssh"]
             + self.ssh_flags
             + ["%s@%s" % (self.ec2User, domain_name), runcmd],
@@ -625,7 +623,7 @@ class Ec2SSH(VMMSInterface, VMMSUtils):
                 # Error copying out the timing data (probably runJob failed)
                 pass
 
-        return timeout(
+        return VMMSUtils.timeout(
             ["scp"]
             + self.ssh_flags
             + [
