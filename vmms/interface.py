@@ -43,3 +43,11 @@ class VMMSInterface(Protocol):
     @abstractmethod
     def instanceName(self, id: int, name: str) -> str:
         ...
+
+    @abstractmethod
+    def getImages(self) -> List[str]:
+        ...
+    
+    @abstractmethod
+    def getPartialOutput(self, vm: TangoMachine) -> str:
+        ...

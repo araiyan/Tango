@@ -64,7 +64,7 @@ class tashiCallError(Exception):
     pass
 
 
-class TashiSSH(object):
+class TashiSSH(VMMSInterface):
     _SSH_FLAGS = [
         "-q",
         "-i",
